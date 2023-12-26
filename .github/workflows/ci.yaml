@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-      - run: cd /tmp && go install github.com/jjti/go-spancheck@${{ env.version }} && spancheck -h
+      - run: cd /tmp && go install github.com/jjti/go-spanlint@${{ env.version }} && spanlint -h
         env:
           version: ${{ env.GITHUB_EVENT_PULL_REQUEST_HEAD_SHA || env.GITHUB_REF_SLUG }}
 

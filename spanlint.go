@@ -1,4 +1,4 @@
-package spancheck
+package spanlint
 
 import (
 	"go/ast"
@@ -35,7 +35,7 @@ And forgetting to set an Error status:
 This checker helps uncover such issues with spans.`
 
 var Analyzer = &analysis.Analyzer{
-	Name: "spancheck",
+	Name: "spanlint",
 	Doc:  doc,
 	Run:  run,
 	Requires: []*analysis.Analyzer{

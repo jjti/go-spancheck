@@ -9,5 +9,5 @@ test:
 
 .PHONY: install
 install:
-	go install ./cmd/spancheck
-	@echo "Installed in $(shell which spancheck)"
+	go install ./cmd/spanlint
+	@echo "Installed in $(shell which spanlint)"
