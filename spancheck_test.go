@@ -3,8 +3,9 @@ package spancheck_test
 import (
 	"testing"
 
-	"github.com/jjti/go-spancheck"
 	"golang.org/x/tools/go/analysis/analysistest"
+
+	"github.com/jjti/go-spancheck"
 )
 
 func Test(t *testing.T) {

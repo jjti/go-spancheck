@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/jjti/go-spancheck"
 	"golang.org/x/tools/go/analysis/singlechecker"
+
+	"github.com/jjti/go-spancheck"
 )
 
 func main() {

@@ -1,7 +1,6 @@
 package spancheck
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 
@@ -48,8 +47,6 @@ var Analyzer = &analysis.Analyzer{
 const (
 	msgUnused = "span is unassigned, probable memory leak"
 )
-
-const debug = true
 
 var errorType *types.Interface
 
@@ -171,9 +168,6 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 		g = cfgs.FuncLit(node)
 	}
 	if sig == nil {
-		if debug {
-			fmt.Println("no signature for function")
-		}
 		return // missing type information
 	}
 
@@ -206,7 +200,6 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 
 // isTracerStart reports whether n is tracer.Start()
 func isTracerStart(info *types.Info, n ast.Node) bool {
-
 	sel, ok := n.(*ast.SelectorExpr)
 	if !ok {
 		return false
@@ -255,9 +248,8 @@ func missingSpanCalls(
 	sig *types.Signature,
 	selName string,
 ) *ast.ReturnStmt {
-
-	// usesEnd reports whether stmts contain an "End" of variable v.
-	usesEnd := func(pass *analysis.Pass, v *types.Var, stmts []ast.Node) bool {
+	// usesCall reports whether stmts contain a use of the selName call on variable v.
+	usesCall := func(pass *analysis.Pass, v *types.Var, stmts []ast.Node) bool {
 		found, reAssigned := false, false
 		for _, subStmt := range stmts {
 			stack := []ast.Node{}
@@ -302,7 +294,7 @@ func missingSpanCalls(
 	blockUses := func(pass *analysis.Pass, v *types.Var, b *cfg.Block) bool {
 		res, ok := memo[b]
 		if !ok {
-			res = usesEnd(pass, v, b.Nodes)
+			res = usesCall(pass, v, b.Nodes)
 			memo[b] = res
 		}
 		return res
@@ -326,8 +318,8 @@ outer:
 		panic("internal error: can't find defining block for span var")
 	}
 
-	// Is v.End() "used" in the remainder of its defining block?
-	if usesEnd(pass, sv.vr, rest) {
+	// Is the call "used" in the remainder of its defining block?
+	if usesCall(pass, sv.vr, rest) {
 		return nil
 	}
 
@@ -354,21 +346,16 @@ outer:
 
 			// Found path to return statement?
 			if ret := b.Return(); ret != nil {
-				if debug {
-					fmt.Printf("found path to return in block %s\n", b)
-				}
 				return ret // found
 			}
 
 			// Recur
 			if ret := search(b.Succs); ret != nil {
-				if debug {
-					fmt.Printf(" from block %s\n", b)
-				}
 				return ret
 			}
 		}
 		return nil
 	}
+
 	return search(defBlock.Succs)
 }

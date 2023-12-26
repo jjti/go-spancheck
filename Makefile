@@ -1,3 +1,7 @@
+.PHONY: fmt
+fmt:
+	golangci-lint run --fix --config ./.golangci.yml
+
 .PHONY: test
 test:
 	$(MAKE) -C testdata vendor

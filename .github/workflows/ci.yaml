@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: [v*]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: ^1.21
+  GOLANGCI_LINT_VERSION: v1.54.0
+
+jobs:
+  go_install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: rlespinasse/github-slug-action@v4.4.1
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: cd /tmp && go install github.com/jjti/go-spancheck@${{ env.version }} && spancheck -h
+        env:
+          version: ${{ env.GITHUB_EVENT_PULL_REQUEST_HEAD_SHA || env.GITHUB_REF_SLUG }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=5m
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - run: go test -coverpkg=. -coverprofile=coverage.out ./...
+      - uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: coverage.out
