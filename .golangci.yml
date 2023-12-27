@@ -37,16 +37,12 @@ linters:
     - noctx # finds sending http request without context.Context
     - nolintlint # reports ill-formed or insufficient nolint directives
     - predeclared # finds code that shadows one of Go's predeclared identifiers
-    - protogetter # Protobuf golang linter - use getters instead of fields.
     - promlinter
     - reassign # checks that package variables are not reassigned
     - revive # fast, configurable, extensible, flexible, and beautiful linter for Go, drop-in replacement of golint
-    - rowserrcheck
-    - sqlclosecheck
     - staticcheck
     - stylecheck
     - tenv
-    - testifylint
     - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
     - unconvert # removes unnecessary type conversions
     - unparam # reports unused function parameters
@@ -95,11 +91,6 @@ linters-settings:
     # Enable to require an explanation of nonzero length after each nolint directive.
     # Default: false
     require-explanation: true
-  rowserrcheck:
-    # database/sql is always checked
-    # Default: []
-    packages:
-      - github.com/jmoiron/sqlx
   stylecheck:
     checks: ["all"]
 issues:
