@@ -5,9 +5,22 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/jjti/go-spanlint)](https://goreportcard.com/report/github.com/jjti/go-spanlint)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
-Checks usage of [OpenTelemetry spans](https://pkg.go.dev/go.opentelemetry.io/otel/trace).
+Checks usage of [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentation/go/manual/) from [go.opentelemetry.io/otel/trace](go.opentelemetry.io/otel/trace).
 
-## Problem Statement
+## Installation & Usage
+
+```bash
+go install github.com/jjti/go-spanlint/cmd/spanlint@latest
+spanlint ./...
+```
+
+## Configuration
+
+```bash
+
+```
+
+## Background
 
 Tracing is a celebrated [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/),[2](https://charity.wtf/2022/08/15/live-your-best-life-with-structured-events/)] and well marketed [[3](https://docs.datadoghq.com/tracing/),[4](https://www.honeycomb.io/distributed-tracing)] pillar of observability. But self-instrumented traces requires a lot of easy-to-forget boilerplate:
 
@@ -35,6 +48,9 @@ func task(ctx context.Context) error {
 }
 ```
 
+1. OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
+1. Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
+
 ### Forgetting to call `span.End()`
 
 Not calling `End` can cause memory leaks and prevents spans from being closed.
@@ -47,13 +63,13 @@ Not calling `End` can cause memory leaks and prevents spans from being closed.
 func task(ctx context.Context) error {
     otel.Tracer("app").Start(ctx, "foo") // span is unassigned, probable memory leak
     _, span := otel.Tracer().Start(ctx, "foo") // span.End is not called on all paths, possible memory leak
-    return nil // this return statement may be reached without calling span.End
+    return nil // return can be reached without calling span.End
 }
 ```
 
 ### Forgetting to call `span.SetStatus(codes.Error, "msg")`
 
-Not calling `SetStatus` prevents `status:error` spans from being highlighted and searchable in DataDog, New Relic, etc. Spans without an `Error` status are also more likely not to be retained.
+Not calling `SetStatus` prevents the `status` attribute from being set to `error` which decreases the utility of spans because:
 
 1. observability platforms and APMs differentiate "success" vs "failure" using [span's status codes](https://docs.datadoghq.com/tracing/metrics/).
 1. telemetry collector agents, like the [Open Telemetry Collector's Tail Sampling Processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md#:~:text=Sampling%20Processor.-,status_code,-%3A%20Sample%20based%20upon), are configurable to sample `Error` spans at a higher rate than `OK` spans.
@@ -66,7 +82,7 @@ func _() error {
 
 	if err := subTask(); err != nil {
         span.RecordError(err)
-		return errors.New(err) // this return statement may be reached without calling span.SetStatus
+		return errors.New(err) // return can be reached without calling span.SetStatus
 	}
 
 	return nil
@@ -81,22 +97,16 @@ Calling `RecordError` creates a new exception-type [event (structured log messag
 
 ```go
 func _() error {
-	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // span.RecordError is not called on all paths
-	defer span.End()
+    _, span := otel.Tracer("foo").Start(context.Background(), "bar") // span.RecordError is not called on all paths
+    defer span.End()
 
 	if err := subTask(); err != nil {
         span.SetStatus(codes.Error, err.Error())
-		return errors.New(err) // this return statement may be reached without calling span.RecordError
+        return errors.New(err) // return can be reached without calling span.RecordError
 	}
 
-	return nil
+    return nil
 }
 ```
 
 OpenTelemetry docs: [Record errors](https://opentelemetry.io/docs/instrumentation/go/manual/#record-errors).
-
-## Installation
-
-```bash
-go install github.com/jjti/go-spanlint/cmd/spanlint@latest
-```

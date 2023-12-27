@@ -1,4 +1,4 @@
-package testdata
+package enableall
 
 import (
 	"context"
@@ -26,19 +26,19 @@ func _() {
 func _() {
 	ctx, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	print(ctx.Done(), span.IsRecording())
-} // want "this return statement may be reached without calling span.End"
+} // want "return can be reached without calling span.End"
 
 func _() {
 	var ctx, span = otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	print(ctx.Done(), span.IsRecording())
-} // want "this return statement may be reached without calling span.End"
+} // want "return can be reached without calling span.End"
 
 func _() {
 	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	fmt.Print(span)
 	defer span.End()
-} // want "this return statement may be reached without calling span.End"
+} // want "return can be reached without calling span.End"
 
 func _() error {
 	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
@@ -47,7 +47,7 @@ func _() error {
 	if true {
 		err := errors.New("foo")
 		span.RecordError(err)
-		return err // want "this return statement may be reached without calling span.SetStatus"
+		return err // want "return can be reached without calling span.SetStatus"
 	}
 
 	return nil
@@ -59,7 +59,7 @@ func _() error {
 
 	if true {
 		span.RecordError(errors.New("foo"))
-		return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+		return errors.New("foo") // want "return can be reached without calling span.SetStatus"
 	}
 
 	return nil
@@ -71,7 +71,7 @@ func _() error {
 
 	if true {
 		span.RecordError(errors.New("foo"))
-		return &testError{} // want "this return statement may be reached without calling span.SetStatus"
+		return &testError{} // want "return can be reached without calling span.SetStatus"
 	}
 
 	return nil
@@ -83,7 +83,7 @@ func _() error {
 
 	if true {
 		span.SetStatus(codes.Error, "foo")
-		return &testError{} // want "this return statement may be reached without calling span.RecordError"
+		return &testError{} // want "return can be reached without calling span.RecordError"
 	}
 
 	return nil
@@ -95,7 +95,7 @@ func _() (string, error) {
 
 	if true {
 		span.RecordError(errors.New("foo"))
-		return "", &testError{} // want "this return statement may be reached without calling span.SetStatus"
+		return "", &testError{} // want "return can be reached without calling span.SetStatus"
 	}
 
 	return "", nil
@@ -107,7 +107,7 @@ func _() (string, error) {
 
 	if true {
 		span.RecordError(errors.New("foo"))
-		return "", errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+		return "", errors.New("foo") // want "return can be reached without calling span.SetStatus"
 	}
 
 	return "", nil
@@ -120,7 +120,7 @@ func _() {
 
 		if true {
 			span.RecordError(errors.New("foo"))
-			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+			return errors.New("foo") // want "return can be reached without calling span.SetStatus"
 		}
 
 		return nil
@@ -135,7 +135,7 @@ func _() error {
 	{
 		if true {
 			span.RecordError(errors.New("foo"))
-			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+			return errors.New("foo") // want "return can be reached without calling span.SetStatus"
 		}
 	}
 

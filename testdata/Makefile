@@ -7,6 +7,9 @@
 
 .PHONY: vendor
 vendor:
-	rm -rf src
+	rm -rf base/src
 	go mod vendor
-	mv vendor src
+	cp -r vendor base/src
+	cp -r vendor enable_all/src
+
+	rm -rf vendor

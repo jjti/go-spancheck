@@ -9,7 +9,18 @@ import (
 )
 
 func Test(t *testing.T) {
-	testdata := analysistest.TestData()
+	t.Parallel()
 
-	analysistest.Run(t, testdata, spanlint.Analyzer)
+	for dir, config := range map[string]*spanlint.Config{
+		"base": spanlint.DefaultConfig,
+		"enableall": {
+			EnableSetStatusCheck:   true,
+			EnableRecordErrorCheck: true,
+		},
+	} {
+		dir := dir
+		t.Run(dir, func(t *testing.T) {
+			analysistest.Run(t, "testdata/"+dir, spanlint.NewAnalyzer(config))
+		})
+	}
 }

@@ -46,28 +46,6 @@ Forgetting to record the Error:
 
 This checker helps uncover such issues with spans.`
 
-var Analyzer = &analysis.Analyzer{
-	Name: "spanlint",
-	Doc:  doc,
-	Run: func(pass *analysis.Pass) (interface{}, error) {
-		inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-
-		nodeFilter := []ast.Node{
-			(*ast.FuncLit)(nil),  // f := func() {}
-			(*ast.FuncDecl)(nil), // func foo() {}
-		}
-		inspect.Preorder(nodeFilter, func(n ast.Node) {
-			runFunc(pass, n)
-		})
-
-		return nil, nil
-	},
-	Requires: []*analysis.Analyzer{
-		ctrlflow.Analyzer,
-		inspect.Analyzer,
-	},
-}
-
 const (
 	msgUnused = "span is unassigned, probable memory leak"
 	stackLen  = 32
@@ -83,8 +61,37 @@ type spanVar struct {
 	vr   *types.Var
 }
 
+// NewAnalyzer returns a new analyzer that checks for mistakes with OTEL trace spans.
+func NewAnalyzer(config *Config) *analysis.Analyzer {
+	return &analysis.Analyzer{
+		Name: "spanlint",
+		Doc:  doc,
+		Run:  run(config),
+		Requires: []*analysis.Analyzer{
+			ctrlflow.Analyzer,
+			inspect.Analyzer,
+		},
+	}
+}
+
+func run(config *Config) func(*analysis.Pass) (interface{}, error) {
+	return func(pass *analysis.Pass) (interface{}, error) {
+		inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+
+		nodeFilter := []ast.Node{
+			(*ast.FuncLit)(nil),  // f := func() {}
+			(*ast.FuncDecl)(nil), // func foo() {}
+		}
+		inspect.Preorder(nodeFilter, func(n ast.Node) {
+			runFunc(pass, n, config)
+		})
+
+		return nil, nil
+	}
+}
+
 // runFunc checks if the the node is a function, has a span, and the span never has SetStatus set.
-func runFunc(pass *analysis.Pass, node ast.Node) {
+func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	// copying https://cs.opensource.google/go/x/tools/+/master:go/analysis/passes/lostcancel/lostcancel.go
 
 	// Find scope of function node
@@ -174,22 +181,28 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 
 	// Check for missing Ends().
 	for _, sv := range spanVars {
-		// Check if there's no End to the span.
-		if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }); ret != nil {
-			pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
-			pass.ReportRangef(ret, "this return statement may be reached without calling %s.End", sv.vr.Name())
+		if !config.DisableEndCheck {
+			// Check if there's no End to the span.
+			if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }); ret != nil {
+				pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
+				pass.ReportRangef(ret, "return can be reached without calling %s.End", sv.vr.Name())
+			}
 		}
 
-		// Check if there's no SetStatus to the span setting an error.
-		if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr); ret != nil {
-			pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
-			pass.ReportRangef(ret, "this return statement may be reached without calling %s.SetStatus", sv.vr.Name())
+		if config.EnableSetStatusCheck {
+			// Check if there's no SetStatus to the span setting an error.
+			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr); ret != nil {
+				pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
+				pass.ReportRangef(ret, "return can be reached without calling %s.SetStatus", sv.vr.Name())
+			}
 		}
 
-		// Check if there's no RecordError to the span setting an error.
-		if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr); ret != nil {
-			pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
-			pass.ReportRangef(ret, "this return statement may be reached without calling %s.RecordError", sv.vr.Name())
+		if config.EnableRecordErrorCheck {
+			// Check if there's no RecordError to the span setting an error.
+			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr); ret != nil {
+				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
+				pass.ReportRangef(ret, "return can be reached without calling %s.RecordError", sv.vr.Name())
+			}
 		}
 	}
 }
