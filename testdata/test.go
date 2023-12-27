@@ -2,41 +2,128 @@ package testdata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
-// unused, not assigned
-func _() {
-	otel.Tracer("foo").Start(context.Background(), "bar") // want `span is unassigned, probable memory leak`
+type testErr struct{}
+
+func (e *testErr) Error() string {
+	return "foo"
 }
 
-// unused, empty assignee
+// incorrect
+
 func _() {
-	ctx, _ := otel.Tracer("foo").Start(context.Background(), "bar") // want `span is unassigned, probable memory leak`
-	print(ctx.Done())
+	otel.Tracer("foo").Start(context.Background(), "bar")           // want "span is unassigned, probable memory leak"
+	ctx, _ := otel.Tracer("foo").Start(context.Background(), "bar") // want "span is unassigned, probable memory leak"
+	fmt.Print(ctx)
 }
 
-// no .End()
 func _() {
-	ctx, span := otel.Tracer("foo").Start(context.Background(), "bar") // want `span.End is not called on all paths, possible memory leak`
+	ctx, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	print(ctx.Done(), span.IsRecording())
-} // want `this return statement may be reached without calling span.End`
+} // want "this return statement may be reached without calling span.End"
 
-// no .End()
 func _() {
-	var ctx, span = otel.Tracer("foo").Start(context.Background(), "bar") // want `span.End is not called on all paths, possible memory leak`
+	var ctx, span = otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	print(ctx.Done(), span.IsRecording())
-} // want `this return statement may be reached without calling span.End`
+} // want "this return statement may be reached without calling span.End"
 
-// no .End(), re-assigned
 func _() {
-	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want `span.End is not called on all paths, possible memory leak`
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	fmt.Print(span)
 	defer span.End()
-} // want `this return statement may be reached without calling span.End`
+} // want "this return statement may be reached without calling span.End"
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		err := errors.New("foo")
+		return err // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return nil
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return nil
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		return &testErr{} // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return nil
+}
+
+func _() (string, error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		return "", &testErr{} // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return "", nil
+}
+
+func _() (string, error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		return "", errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return "", nil
+}
+
+func _() {
+	f := func() error {
+		_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+		defer span.End()
+
+		if true {
+			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+		}
+
+		return nil
+	}
+	fmt.Println(f)
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	{
+		if true {
+			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
+		}
+	}
+
+	return nil
+}
+
+// correct
 
 func _() error {
 	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
@@ -45,8 +132,25 @@ func _() error {
 	return nil
 }
 
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer span.End()
+
+	if false {
+		err := errors.New("foo")
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	if true {
+		span.SetStatus(codes.Error, "foo")
+		return errors.New("bar")
+	}
+
+	return nil
+}
+
 func _() {
-	// correct
 	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
 	defer span.End()
 

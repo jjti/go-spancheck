@@ -37,7 +37,19 @@ This checker helps uncover such issues with spans.`
 var Analyzer = &analysis.Analyzer{
 	Name: "spanlint",
 	Doc:  doc,
-	Run:  run,
+	Run: func(pass *analysis.Pass) (interface{}, error) {
+		inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+
+		nodeFilter := []ast.Node{
+			(*ast.FuncLit)(nil),  // f := func() {}
+			(*ast.FuncDecl)(nil), // func foo() {}
+		}
+		inspect.Preorder(nodeFilter, func(n ast.Node) {
+			runFunc(pass, n)
+		})
+
+		return nil, nil
+	},
 	Requires: []*analysis.Analyzer{
 		ctrlflow.Analyzer,
 		inspect.Analyzer,
@@ -46,29 +58,12 @@ var Analyzer = &analysis.Analyzer{
 
 const (
 	msgUnused = "span is unassigned, probable memory leak"
+	stackLen  = 32
 )
 
-var errorType *types.Interface
-
-func init() {
-	// this approach stolen from errcheck
-	// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
-	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
-}
-
-func run(pass *analysis.Pass) (interface{}, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-
-	nodeFilter := []ast.Node{
-		(*ast.FuncLit)(nil),  // f := func() {}
-		(*ast.FuncDecl)(nil), // func foo() {}
-	}
-	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		runFunc(pass, n)
-	})
-
-	return nil, nil
-}
+// this approach stolen from errcheck
+// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
+var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 
 type spanVar struct {
 	stmt ast.Node
@@ -93,7 +88,7 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 	spanVars := make(map[*ast.Ident]spanVar)
 
 	// Find the set of span vars to analyze.
-	stack := make([]ast.Node, 0, 32)
+	stack := make([]ast.Node, 0, stackLen)
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch n.(type) {
 		case *ast.FuncLit:
@@ -111,7 +106,6 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 		//   ctx, span     := otel.Tracer("app").Start(...)
 		//   ctx, span     = otel.Tracer("app").Start(...)
 		//   var ctx, span = otel.Tracer("app").Start(...)
-		//
 		if !isTracerStart(pass.TypesInfo, n) || !isCall(stack[len(stack)-2]) {
 			return true
 		}
@@ -123,28 +117,24 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 			return true
 		}
 
-		if id != nil {
-			if id.Name == "_" {
-				pass.ReportRangef(id, msgUnused)
-			} else if v, ok := pass.TypesInfo.Uses[id].(*types.Var); ok {
-				// If the span variable is defined outside function scope,
-				// do not analyze it.
-				if funcScope.Contains(v.Pos()) {
-					spanVars[id] = spanVar{
-						vr:   v,
-						stmt: stmt,
-						id:   id,
-					}
-				}
-			} else if v, ok := pass.TypesInfo.Defs[id].(*types.Var); ok {
+		if id.Name == "_" {
+			pass.ReportRangef(id, msgUnused)
+		} else if v, ok := pass.TypesInfo.Uses[id].(*types.Var); ok {
+			// If the span variable is defined outside function scope,
+			// do not analyze it.
+			if funcScope.Contains(v.Pos()) {
 				spanVars[id] = spanVar{
 					vr:   v,
 					stmt: stmt,
 					id:   id,
 				}
 			}
-		} else {
-			pass.ReportRangef(n, msgUnused)
+		} else if v, ok := pass.TypesInfo.Defs[id].(*types.Var); ok {
+			spanVars[id] = spanVar{
+				vr:   v,
+				stmt: stmt,
+				id:   id,
+			}
 		}
 
 		return true
@@ -162,7 +152,6 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 	case *ast.FuncDecl:
 		sig, _ = pass.TypesInfo.Defs[node.Name].Type().(*types.Signature)
 		g = cfgs.FuncDecl(node)
-
 	case *ast.FuncLit:
 		sig, _ = pass.TypesInfo.Types[node.Type].Type.(*types.Signature)
 		g = cfgs.FuncLit(node)
@@ -171,29 +160,18 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 		return // missing type information
 	}
 
-	// Check whether it returns an error. We will check for missing SetStatus if so.
-	returnsErr := false
-	for i := 0; i < sig.Results().Len(); i++ {
-		if types.Implements(sig.Results().At(i).Type(), errorType) {
-			returnsErr = true
-			break
-		}
-	}
-
 	// Check for missing Ends().
 	for _, sv := range spanVars {
 		// Check if there's no End to the span.
-		if ret := missingSpanCalls(pass, g, sv, sig, "End"); ret != nil {
+		if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }); ret != nil {
 			pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
 			pass.ReportRangef(ret, "this return statement may be reached without calling %s.End", sv.vr.Name())
 		}
 
 		// Check if there's no SetStatus to the span setting an error.
-		if returnsErr {
-			if ret := missingSpanCalls(pass, g, sv, sig, "SetStatus"); ret != nil {
-				pass.ReportRangef(sv.stmt, "%s.SetStatus() is not called on all paths", sv.vr.Name())
-				pass.ReportRangef(ret, "this return statement may be reached without calling %s.SetStatus()", sv.vr.Name())
-			}
+		if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr); ret != nil {
+			pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
+			pass.ReportRangef(ret, "this return statement may be reached without calling %s.SetStatus", sv.vr.Name())
 		}
 	}
 }
@@ -245,11 +223,11 @@ func missingSpanCalls(
 	pass *analysis.Pass,
 	g *cfg.CFG,
 	sv spanVar,
-	sig *types.Signature,
 	selName string,
+	checkErr func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt,
 ) *ast.ReturnStmt {
 	// usesCall reports whether stmts contain a use of the selName call on variable v.
-	usesCall := func(pass *analysis.Pass, v *types.Var, stmts []ast.Node) bool {
+	usesCall := func(pass *analysis.Pass, stmts []ast.Node) bool {
 		found, reAssigned := false, false
 		for _, subStmt := range stmts {
 			stack := []ast.Node{}
@@ -257,7 +235,8 @@ func missingSpanCalls(
 				switch n.(type) {
 				case *ast.FuncLit:
 					if len(stack) > 0 {
-						return false // don't stray into nested functions
+						// return false // don't stray into nested functions
+						return true // don't stray into nested functions
 					}
 				case nil:
 					stack = stack[:len(stack)-1] // pop
@@ -272,15 +251,9 @@ func missingSpanCalls(
 					}
 				}
 
-				switch n := n.(type) {
-				case *ast.SelectorExpr:
-					if n.Sel.Name == selName {
-						if id, ok := n.X.(*ast.Ident); ok {
-							if id.Obj.Decl == sv.id.Obj.Decl {
-								found = true
-							}
-						}
-					}
+				if n, ok := n.(*ast.SelectorExpr); ok && n.Sel.Name == selName {
+					id, ok := n.X.(*ast.Ident)
+					found = ok && id.Obj.Decl == sv.id.Obj.Decl
 				}
 
 				return !found
@@ -291,10 +264,10 @@ func missingSpanCalls(
 
 	// blockUses computes "uses" for each block, caching the result.
 	memo := make(map[*cfg.Block]bool)
-	blockUses := func(pass *analysis.Pass, v *types.Var, b *cfg.Block) bool {
+	blockUses := func(pass *analysis.Pass, b *cfg.Block) bool {
 		res, ok := memo[b]
 		if !ok {
-			res = usesCall(pass, v, b.Nodes)
+			res = usesCall(pass, b.Nodes)
 			memo[b] = res
 		}
 		return res
@@ -319,13 +292,13 @@ outer:
 	}
 
 	// Is the call "used" in the remainder of its defining block?
-	if usesCall(pass, sv.vr, rest) {
+	if usesCall(pass, rest) {
 		return nil
 	}
 
 	// Does the defining block return without using v.End()?
 	if ret := defBlock.Return(); ret != nil {
-		return ret
+		return checkErr(pass, ret)
 	}
 
 	// Search the CFG depth-first for a path, from defblock to a
@@ -340,17 +313,17 @@ outer:
 			seen[b] = true
 
 			// Prune the search if the block uses v.
-			if blockUses(pass, sv.vr, b) {
+			if blockUses(pass, b) {
 				continue
 			}
 
 			// Found path to return statement?
-			if ret := b.Return(); ret != nil {
+			if ret := returnsErr(pass, b.Return()); ret != nil {
 				return ret // found
 			}
 
 			// Recur
-			if ret := search(b.Succs); ret != nil {
+			if ret := returnsErr(pass, search(b.Succs)); ret != nil {
 				return ret
 			}
 		}
@@ -358,4 +331,63 @@ outer:
 	}
 
 	return search(defBlock.Succs)
+}
+
+func returnsErr(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt {
+	if ret == nil {
+		return nil
+	}
+
+	for _, r := range ret.Results {
+		if isErrorType(pass.TypesInfo.TypeOf(r)) {
+			return ret
+		}
+
+		if r, ok := r.(*ast.CallExpr); ok {
+			for _, err := range errorsByArg(pass, r) {
+				if err {
+					return ret
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// errorsByArg returns a slice s such that
+// len(s) == number of return types of call
+// s[i] == true iff return type at position i from left is an error type
+//
+// copied from https://github.com/kisielk/errcheck/blob/master/errcheck/errcheck.go
+func errorsByArg(pass *analysis.Pass, call *ast.CallExpr) []bool {
+	switch t := pass.TypesInfo.Types[call].Type.(type) {
+	case *types.Named:
+		// Single return
+		return []bool{isErrorType(t)}
+	case *types.Pointer:
+		// Single return via pointer
+		return []bool{isErrorType(t)}
+	case *types.Tuple:
+		// Multiple returns
+		s := make([]bool, t.Len())
+		for i := 0; i < t.Len(); i++ {
+			switch et := t.At(i).Type().(type) {
+			case *types.Named:
+				// Single return
+				s[i] = isErrorType(et)
+			case *types.Pointer:
+				// Single return via pointer
+				s[i] = isErrorType(et)
+			default:
+				s[i] = false
+			}
+		}
+		return s
+	}
+	return []bool{false}
+}
+
+func isErrorType(t types.Type) bool {
+	return types.Implements(t, errorType)
 }

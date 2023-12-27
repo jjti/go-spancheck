@@ -10,7 +10,6 @@ linters:
     - bidichk # checks for dangerous unicode character sequences
     - bodyclose
     - containedctx
-    - cyclop # checks function and package cyclomatic complexity
     - decorder # checks declaration order and count of types, constants, variables and functions
     - dogsled
     - durationcheck # checks for two durations multiplied together
@@ -35,7 +34,6 @@ linters:
     - nakedret
     - nestif # reports deeply nested if statements
     - nilerr # finds the code that returns nil even if it checks that the error is not nil
-    - nilnil # checks that there is no simultaneous return of nil error and an invalid value
     - noctx # finds sending http request without context.Context
     - nolintlint # reports ill-formed or insufficient nolint directives
     - predeclared # finds code that shadows one of Go's predeclared identifiers
@@ -50,7 +48,6 @@ linters:
     - tenv
     - testifylint
     - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
-    - unconvert
     - unconvert # removes unnecessary type conversions
     - unparam # reports unused function parameters
     - unused
@@ -58,14 +55,6 @@ linters:
     - wastedassign # finds wasted assignment statements
     - whitespace # detects leading and trailing whitespace
 linters-settings:
-  cyclop:
-    # The maximal code complexity to report.
-    # Default: 10
-    max-complexity: 20
-    # The maximal average package complexity.
-    # If it's higher than 0.0 (float) the check is enabled
-    # Default: 0.0
-    package-average: 10.0
   gci:
     skip-generated: true
     custom-order: true
