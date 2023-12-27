@@ -9,9 +9,9 @@ import (
 	"go.opentelemetry.io/otel/codes"
 )
 
-type testErr struct{}
+type testError struct{}
 
-func (e *testErr) Error() string {
+func (e *testError) Error() string {
 	return "foo"
 }
 
@@ -68,7 +68,7 @@ func _() error {
 	defer span.End()
 
 	if true {
-		return &testErr{} // want "this return statement may be reached without calling span.SetStatus"
+		return &testError{} // want "this return statement may be reached without calling span.SetStatus"
 	}
 
 	return nil
@@ -79,7 +79,7 @@ func _() (string, error) {
 	defer span.End()
 
 	if true {
-		return "", &testErr{} // want "this return statement may be reached without calling span.SetStatus"
+		return "", &testError{} // want "this return statement may be reached without calling span.SetStatus"
 	}
 
 	return "", nil
