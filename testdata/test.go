@@ -136,6 +136,17 @@ func _() error {
 	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
 	defer span.End()
 
+	if true {
+		return nil
+	}
+
+	return nil
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer span.End()
+
 	if false {
 		err := errors.New("foo")
 		span.SetStatus(codes.Error, err.Error())

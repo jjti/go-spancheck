@@ -235,8 +235,7 @@ func missingSpanCalls(
 				switch n.(type) {
 				case *ast.FuncLit:
 					if len(stack) > 0 {
-						// return false // don't stray into nested functions
-						return true // don't stray into nested functions
+						return false // don't stray into nested functions
 					}
 				case nil:
 					stack = stack[:len(stack)-1] // pop
