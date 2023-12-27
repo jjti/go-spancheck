@@ -9,7 +9,7 @@ Checks usage of [OpenTelemetry spans](https://pkg.go.dev/go.opentelemetry.io/ote
 
 ## Problem Statement
 
-Tracing is one of the pillars of observability. But it's easy to shoot yourself in the foot when creating and managing OTEL spans. For two reasons:
+Tracing is an -- often celebrated [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/), [2](https://charity.wtf/2022/08/15/live-your-best-life-with-structured-events/)] -- pillar of observability. But it's easy to shoot yourself in the foot when creating and managing OTEL spans. For two reasons:
 
 ### Forgetting to call `span.End()`
 

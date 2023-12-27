@@ -168,3 +168,7 @@ func _() {
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	defer span.End()
 }
+
+func _() {
+	// TODO: https://andydote.co.uk/2023/09/19/tracing-is-better/
+}
