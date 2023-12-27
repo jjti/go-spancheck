@@ -46,6 +46,7 @@ func _() error {
 
 	if true {
 		err := errors.New("foo")
+		span.RecordError(err)
 		return err // want "this return statement may be reached without calling span.SetStatus"
 	}
 
@@ -57,6 +58,7 @@ func _() error {
 	defer span.End()
 
 	if true {
+		span.RecordError(errors.New("foo"))
 		return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
 	}
 
@@ -68,7 +70,20 @@ func _() error {
 	defer span.End()
 
 	if true {
+		span.RecordError(errors.New("foo"))
 		return &testError{} // want "this return statement may be reached without calling span.SetStatus"
+	}
+
+	return nil
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.RecordError is not called on all paths"
+	defer span.End()
+
+	if true {
+		span.SetStatus(codes.Error, "foo")
+		return &testError{} // want "this return statement may be reached without calling span.RecordError"
 	}
 
 	return nil
@@ -79,6 +94,7 @@ func _() (string, error) {
 	defer span.End()
 
 	if true {
+		span.RecordError(errors.New("foo"))
 		return "", &testError{} // want "this return statement may be reached without calling span.SetStatus"
 	}
 
@@ -90,6 +106,7 @@ func _() (string, error) {
 	defer span.End()
 
 	if true {
+		span.RecordError(errors.New("foo"))
 		return "", errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
 	}
 
@@ -102,6 +119,7 @@ func _() {
 		defer span.End()
 
 		if true {
+			span.RecordError(errors.New("foo"))
 			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
 		}
 
@@ -116,6 +134,7 @@ func _() error {
 
 	{
 		if true {
+			span.RecordError(errors.New("foo"))
 			return errors.New("foo") // want "this return statement may be reached without calling span.SetStatus"
 		}
 	}
@@ -150,11 +169,13 @@ func _() error {
 	if false {
 		err := errors.New("foo")
 		span.SetStatus(codes.Error, err.Error())
+		span.RecordError(err)
 		return err
 	}
 
 	if true {
 		span.SetStatus(codes.Error, "foo")
+		span.RecordError(errors.New("foo"))
 		return errors.New("bar")
 	}
 

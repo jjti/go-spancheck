@@ -22,13 +22,25 @@ Common mistakes with OTEL trace spans include forgetting to call End:
 		// do stuff
 	}
 
-And forgetting to set an Error status:
+Forgetting to set an Error status:
 
 	ctx, span := otel.Tracer("app").Start(ctx, "span")
 	defer span.End()
 
 	if err := task(); err != nil {
 		// span.SetStatus(codes.Error, err.Error()) should be here
+		span.RecordError(err)
+		return fmt.Errorf("failed to run task: %w", err)
+	}
+
+Forgetting to record the Error:
+
+	ctx, span := otel.Tracer("app").Start(ctx, "span")
+	defer span.End()
+
+	if err := task(); err != nil {
+		span.SetStatus(codes.Error, err.Error())
+		// span.RecordError(err) should be here
 		return fmt.Errorf("failed to run task: %w", err)
 	}
 
@@ -172,6 +184,12 @@ func runFunc(pass *analysis.Pass, node ast.Node) {
 		if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr); ret != nil {
 			pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
 			pass.ReportRangef(ret, "this return statement may be reached without calling %s.SetStatus", sv.vr.Name())
+		}
+
+		// Check if there's no RecordError to the span setting an error.
+		if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr); ret != nil {
+			pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
+			pass.ReportRangef(ret, "this return statement may be reached without calling %s.RecordError", sv.vr.Name())
 		}
 	}
 }
