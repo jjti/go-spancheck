@@ -30,7 +30,7 @@ var (
 // NewAnalyzer returns a new analyzer that checks for mistakes with OTEL trace spans.
 // Its config is sourced from flags.
 func NewAnalyzer() *analysis.Analyzer {
-	return newAnalyzer(NewConfig())
+	return newAnalyzer(NewConfigFromFlags())
 }
 
 // NewAnalyzerWithConfig returns a new analyzer configured with the Config passed in.
@@ -40,6 +40,9 @@ func NewAnalyzerWithConfig(config *Config) *analysis.Analyzer {
 }
 
 func newAnalyzer(config *Config) *analysis.Analyzer {
+	// set up the config if slices were provided.
+	config.parseSignatures()
+
 	return &analysis.Analyzer{
 		Name:  "spancheck",
 		Doc:   extractDoc(doc, "spancheck"),
@@ -175,7 +178,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.EnableSetStatusCheck || config.EnableAll {
 			// Check if there's no SetStatus to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr, config.IgnoreSetStatusCheckSignatures); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr, config.ignoreSetStatusCheckSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.SetStatus", sv.vr.Name())
 			}
@@ -183,7 +186,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.EnableRecordErrorCheck || config.EnableAll {
 			// Check if there's no RecordError to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.IgnoreRecordErrorCheckSignatures); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.ignoreRecordErrorCheckSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.RecordError", sv.vr.Name())
 			}

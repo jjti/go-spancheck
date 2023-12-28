@@ -1,7 +1,6 @@
 package spancheck_test
 
 import (
-	"regexp"
 	"testing"
 
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -13,12 +12,12 @@ func Test(t *testing.T) {
 	t.Parallel()
 
 	for dir, config := range map[string]*spancheck.Config{
-		"base": spancheck.NewConfig(),
+		"base": spancheck.NewConfigFromFlags(),
 		"disableerrorchecks": {
-			EnableSetStatusCheck:             true,
-			IgnoreSetStatusCheckSignatures:   regexp.MustCompile("telemetry.Record"),
-			EnableRecordErrorCheck:           true,
-			IgnoreRecordErrorCheckSignatures: regexp.MustCompile("telemetry.Record"),
+			EnableSetStatusCheck:                  true,
+			IgnoreSetStatusCheckSignaturesSlice:   []string{"telemetry.Record"},
+			EnableRecordErrorCheck:                true,
+			IgnoreRecordErrorCheckSignaturesSlice: []string{"telemetry.Record"},
 		},
 		"enableall": {
 			EnableAll: true,
