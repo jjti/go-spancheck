@@ -14,6 +14,26 @@ go install github.com/jjti/go-spancheck/cmd/spancheck@latest
 spancheck ./...
 ```
 
+## Example
+
+```go
+func _() error {
+    // span.End is not called on all paths, possible memory leak
+    // span.SetStatus is not called on all paths
+    // span.RecordError is not called on all paths
+    _, span := otel.Tracer("foo").Start(context.Background(), "bar")
+
+    if true {
+        // return can be reached without calling span.End
+        // return can be reached without calling span.SetStatus
+        // return can be reached without calling span.RecordError
+        return errors.New("err")
+    }
+
+    return nil // return can be reached without calling span.End
+}
+```
+
 ## Configuration
 
 Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
@@ -66,7 +86,7 @@ Using the `-ignore-set-status-check-signatures` flag, the error above can be sup
 spancheck -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
 ```
 
-## Background
+## Problem Statement
 
 Tracing is a celebrated [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/),[2](https://charity.wtf/2022/08/15/live-your-best-life-with-structured-events/)] and well marketed [[3](https://docs.datadoghq.com/tracing/),[4](https://www.honeycomb.io/distributed-tracing)] pillar of observability. But self-instrumented traces requires a lot of easy-to-forget boilerplate:
 
