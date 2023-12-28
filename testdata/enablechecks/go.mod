@@ -1,4 +1,4 @@
-module github.com/jjti/go-spanlint/testdata/enablechecks
+module github.com/jjti/go-spancheck/testdata/enablechecks
 
 go 1.21.3
 

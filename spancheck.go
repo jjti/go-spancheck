@@ -1,4 +1,4 @@
-package spanlint
+package spancheck
 
 import (
 	_ "embed"
@@ -28,11 +28,23 @@ var (
 )
 
 // NewAnalyzer returns a new analyzer that checks for mistakes with OTEL trace spans.
-func NewAnalyzer(config *Config) *analysis.Analyzer {
+// Its config is sourced from flags.
+func NewAnalyzer() *analysis.Analyzer {
+	return newAnalyzer(NewConfig())
+}
+
+// NewAnalyzerWithConfig returns a new analyzer configured with the Config passed in.
+// Its config can be set for testing.
+func NewAnalyzerWithConfig(config *Config) *analysis.Analyzer {
+	return newAnalyzer(config)
+}
+
+func newAnalyzer(config *Config) *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name: "spanlint",
-		Doc:  extractDoc(doc, "spanlint"),
-		Run:  run(config),
+		Name:  "spancheck",
+		Doc:   extractDoc(doc, "spancheck"),
+		Flags: config.fs,
+		Run:   run(config),
 		Requires: []*analysis.Analyzer{
 			ctrlflow.Analyzer,
 			inspect.Analyzer,

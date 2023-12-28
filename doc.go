@@ -1,8 +1,8 @@
-// Package spanlint defines a linter that checks for mistakes with OTEL trace spans.
+// Package spancheck defines a linter that checks for mistakes with OTEL trace spans.
 //
-// # Analyzer spanlint
+// # Analyzer spancheck
 //
-// spanlint: check for mistakes with OpenTelemetry trace spans.
+// spancheck: check for mistakes with OpenTelemetry trace spans.
 //
 // Common mistakes with OTEL trace spans include forgetting to call End:
 //
@@ -34,4 +34,4 @@
 //		// span.RecordError(err) should be here
 //		return fmt.Errorf("failed to run task: %w", err)
 //	}
-package spanlint
+package spancheck

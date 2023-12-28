@@ -1,4 +1,4 @@
-module github.com/jjti/go-spanlint
+module github.com/jjti/go-spancheck
 
 go 1.21.3
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jjti/go-spanlint/testdata/disableerrorchecks/telemetry"
+	"github.com/jjti/go-spancheck/testdata/disableerrorchecks/telemetry"
 	"go.opentelemetry.io/otel"
 )
 

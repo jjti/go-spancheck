@@ -1,8 +1,8 @@
-# go-spanlint
+# go-spancheck
 
-![Latest release](https://img.shields.io/github/v/release/jjti/go-spanlint)
-[![build](https://github.com/jjti/go-spanlint/actions/workflows/build.yaml/badge.svg)](https://github.com/jjti/go-spanlint/actions/workflows/build.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jjti/go-spanlint)](https://goreportcard.com/report/github.com/jjti/go-spanlint)
+![Latest release](https://img.shields.io/github/v/release/jjti/go-spancheck)
+[![build](https://github.com/jjti/go-spancheck/actions/workflows/build.yaml/badge.svg)](https://github.com/jjti/go-spancheck/actions/workflows/build.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jjti/go-spancheck)](https://goreportcard.com/report/github.com/jjti/go-spancheck)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
 Checks usage of [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentation/go/manual/) from [go.opentelemetry.io/otel/trace](go.opentelemetry.io/otel/trace).
@@ -10,8 +10,8 @@ Checks usage of [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentat
 ## Installation & Usage
 
 ```bash
-go install github.com/jjti/go-spanlint/cmd/spanlint@latest
-spanlint ./...
+go install github.com/jjti/go-spancheck/cmd/spancheck@latest
+spancheck ./...
 ```
 
 ## Configuration
@@ -19,8 +19,8 @@ spanlint ./...
 Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
 
 ```txt
-$ spanlint -h
-Usage of spanlint:
+$ spancheck -h
+Usage of spancheck:
   -disable-end-check
         disable the check for calling span.End() after span creation
   -enable-all
@@ -62,7 +62,7 @@ func recordErr(span trace.Span, err error) error {
 Using the `-ignore-set-status-check-signatures` flag, the error above can be suppressed:
 
 ```bash
-spanlint -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
+spancheck -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
 ```
 
 ## Background

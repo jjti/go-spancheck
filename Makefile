@@ -19,9 +19,10 @@ testvendor:
 	@cp -r testdata/base/vendor testdata/base/src
 	@cp -r testdata/base/vendor testdata/disableerrorchecks/src
 	@cp -r testdata/base/vendor testdata/enableall/src
+	@cp -r testdata/base/vendor testdata/enablechecks/src
 	@rm -rf testdata/base/vendor
 
 .PHONY: install
 install:
-	go install ./cmd/spanlint
-	@echo "Installed in $(shell which spanlint)"
+	go install ./cmd/spancheck
+	@echo "Installed in $(shell which spancheck)"

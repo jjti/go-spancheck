@@ -1,4 +1,4 @@
-module github.com/jjti/go-spanlint/testdata/disableerrorchecks
+module github.com/jjti/go-spancheck/testdata/disableerrorchecks
 
 go 1.21.3
 
