@@ -1,8 +1,13 @@
 package spanlint
 
 import (
+	_ "embed"
 	"go/ast"
+	"go/parser"
+	"go/token"
 	"go/types"
+	"regexp"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/ctrlflow"
@@ -11,61 +16,22 @@ import (
 	"golang.org/x/tools/go/cfg"
 )
 
-const doc = `check for mistakes with OTEL trace spans
+//go:embed doc.go
+var doc string
 
-Common mistakes with OTEL trace spans include forgetting to call End:
+const stackLen = 32
 
-	func(ctx context.Context) {
-		ctx, span := otel.Tracer("app").Start(ctx, "span")
-		// defer span.End() should be here
-
-		// do stuff
-	}
-
-Forgetting to set an Error status:
-
-	ctx, span := otel.Tracer("app").Start(ctx, "span")
-	defer span.End()
-
-	if err := task(); err != nil {
-		// span.SetStatus(codes.Error, err.Error()) should be here
-		span.RecordError(err)
-		return fmt.Errorf("failed to run task: %w", err)
-	}
-
-Forgetting to record the Error:
-
-	ctx, span := otel.Tracer("app").Start(ctx, "span")
-	defer span.End()
-
-	if err := task(); err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		// span.RecordError(err) should be here
-		return fmt.Errorf("failed to run task: %w", err)
-	}
-
-This checker helps uncover such issues with spans.`
-
-const (
-	msgUnused = "span is unassigned, probable memory leak"
-	stackLen  = 32
+var (
+	// this approach stolen from errcheck
+	// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
+	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 )
-
-// this approach stolen from errcheck
-// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
-var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
-
-type spanVar struct {
-	stmt ast.Node
-	id   *ast.Ident
-	vr   *types.Var
-}
 
 // NewAnalyzer returns a new analyzer that checks for mistakes with OTEL trace spans.
 func NewAnalyzer(config *Config) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "spanlint",
-		Doc:  doc,
+		Doc:  extractDoc(doc, "spanlint"),
 		Run:  run(config),
 		Requires: []*analysis.Analyzer{
 			ctrlflow.Analyzer,
@@ -88,6 +54,12 @@ func run(config *Config) func(*analysis.Pass) (interface{}, error) {
 
 		return nil, nil
 	}
+}
+
+type spanVar struct {
+	stmt ast.Node
+	id   *ast.Ident
+	vr   *types.Var
 }
 
 // runFunc checks if the the node is a function, has a span, and the span never has SetStatus set.
@@ -132,12 +104,12 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		stmt := stack[len(stack)-3]
 		id := getID(stmt)
 		if id == nil {
-			pass.ReportRangef(n, msgUnused)
+			pass.ReportRangef(n, "span is unassigned, probable memory leak")
 			return true
 		}
 
 		if id.Name == "_" {
-			pass.ReportRangef(id, msgUnused)
+			pass.ReportRangef(id, "span is unassigned, probable memory leak")
 		} else if v, ok := pass.TypesInfo.Uses[id].(*types.Var); ok {
 			// If the span variable is defined outside function scope,
 			// do not analyze it.
@@ -183,7 +155,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	for _, sv := range spanVars {
 		if !config.DisableEndCheck {
 			// Check if there's no End to the span.
-			if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }, nil); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.End", sv.vr.Name())
 			}
@@ -191,7 +163,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.EnableSetStatusCheck {
 			// Check if there's no SetStatus to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr, config.IgnoreSetStatusCheckSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.SetStatus", sv.vr.Name())
 			}
@@ -199,7 +171,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.EnableRecordErrorCheck {
 			// Check if there's no RecordError to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.IgnoreRecordErrorCheckSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.RecordError", sv.vr.Name())
 			}
@@ -219,11 +191,7 @@ func isTracerStart(info *types.Info, n ast.Node) bool {
 	}
 
 	obj, ok := info.Uses[sel.Sel]
-	if ok {
-		return obj.Pkg().Path() == "go.opentelemetry.io/otel/trace"
-	}
-
-	return false
+	return ok && obj.Pkg().Path() == "go.opentelemetry.io/otel/trace"
 }
 
 func isCall(n ast.Node) bool {
@@ -247,15 +215,14 @@ func getID(node ast.Node) *ast.Ident {
 }
 
 // missingSpanCalls finds a path through the CFG, from stmt (which defines
-// the 'span' variable v) to a return statement, that doesn't call End() on the span.
-//
-// Additionally, if the CFG returns an error without calling SetStatus, an error is returned.
+// the 'span' variable v) to a return statement, that doesn't call the passed selector on the span.
 func missingSpanCalls(
 	pass *analysis.Pass,
 	g *cfg.CFG,
 	sv spanVar,
 	selName string,
 	checkErr func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt,
+	ignoreCheckSig *regexp.Regexp,
 ) *ast.ReturnStmt {
 	// usesCall reports whether stmts contain a use of the selName call on variable v.
 	usesCall := func(pass *analysis.Pass, stmts []ast.Node) bool {
@@ -274,6 +241,7 @@ func missingSpanCalls(
 				}
 				stack = append(stack, n) // push
 
+				// Check whether the span was assigned over top of its old value.
 				if isTracerStart(pass.TypesInfo, n) {
 					if id := getID(stack[len(stack)-3]); id != nil && id.Obj.Decl == sv.id.Obj.Decl {
 						reAssigned = true
@@ -281,9 +249,18 @@ func missingSpanCalls(
 					}
 				}
 
-				if n, ok := n.(*ast.SelectorExpr); ok && n.Sel.Name == selName {
-					id, ok := n.X.(*ast.Ident)
-					found = ok && id.Obj.Decl == sv.id.Obj.Decl
+				if n, ok := n.(*ast.SelectorExpr); ok {
+					// Selector (End, SetStatus, RecordError) hit.
+					if n.Sel.Name == selName {
+						id, ok := n.X.(*ast.Ident)
+						found = ok && id.Obj.Decl == sv.id.Obj.Decl
+					}
+
+					// Check if an ignore signature matches.
+					fnSig := pass.TypesInfo.ObjectOf(n.Sel).String()
+					if ignoreCheckSig != nil && ignoreCheckSig.MatchString(fnSig) {
+						found = true
+					}
 				}
 
 				return !found
@@ -420,4 +397,33 @@ func errorsByArg(pass *analysis.Pass, call *ast.CallExpr) []bool {
 
 func isErrorType(t types.Type) bool {
 	return types.Implements(t, errorType)
+}
+
+// extractDoc extracts the doc comment for the analyzer with the given name.
+// copied out of the internal go util: https://github.com/golang/tools/blob/master/internal/analysisinternal/extractdoc.go
+func extractDoc(content, name string) string {
+	if content == "" {
+		panic("empty content")
+	}
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "", content, parser.ParseComments|parser.PackageClauseOnly)
+	if err != nil {
+		panic(err)
+	}
+	if f.Doc == nil {
+		panic("no package doc comment")
+	}
+	for _, section := range strings.Split(f.Doc.Text(), "\n# ") {
+		if body := strings.TrimPrefix(section, "Analyzer "+name); body != section &&
+			body != "" &&
+			body[0] == '\r' || body[0] == '\n' {
+			body = strings.TrimSpace(body)
+			rest := strings.TrimPrefix(body, name+":")
+			if rest == body {
+				panic("package doc comment contains no '" + name + "' heading")
+			}
+			return strings.TrimSpace(rest)
+		}
+	}
+	panic("package doc comment contains no 'Analyzer " + name + "' heading")
 }

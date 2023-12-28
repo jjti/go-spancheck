@@ -17,7 +17,18 @@ spanlint ./...
 ## Configuration
 
 ```bash
-
+$ spanlint -h
+Usage of spanlint:
+  -disable-end-check
+        disable the check for calling span.End() after span creation
+  -enable-record-error-check
+        enable the check for calling span.RecordError(err) when returning an error
+  -enable-set-status-check
+        enable the check for calling span.SetStatus(codes.Error, msg) when returning an error
+  -ignore-record-error-check-signatures string
+        comma-separated list of function signature regex that should disable the span.RecordError(err) checks on errors
+  -ignore-set-status-check-signatures string
+        comma-separated list of function signature regex that should disable the span.SetStatus(codes.Error, msg) checks on errors
 ```
 
 ## Background
@@ -48,8 +59,16 @@ func task(ctx context.Context) error {
 }
 ```
 
-1. OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
-1. Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
+For spans to be _really_ useful, developers need to:
+
+1. call `span.End()`
+1. call `span.SetStatus(codes.Error, msg)` on error
+1. call `span.RecordError(err)` on error
+1. call `span.SetAttributes()` liberally
+
+OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
+
+Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
 
 ### Forgetting to call `span.End()`
 
@@ -110,3 +129,12 @@ func _() error {
 ```
 
 OpenTelemetry docs: [Record errors](https://opentelemetry.io/docs/instrumentation/go/manual/#record-errors).
+
+## Attribution
+
+This linter is the result of liberal copying of:
+
+- [github.com/golang/tools/go/analysis/passes/lostcancel](https://github.com/golang/tools/tree/master/go/analysis/passes/lostcancel) (half the linter)
+- [github.com/tomarrell/wrapcheck](https://github.com/tomarrell/wrapcheck) (error type checking and config)
+- [github.com/Antonboom/testifylint](https://github.com/Antonboom/testifylint) (README)
+- [github.com/ghostiam/protogetter](https://github.com/ghostiam/protogetter/blob/main/testdata/Makefile) (test setup)

@@ -2,7 +2,7 @@ go 1.21.3
 
 use (
 	.
-	./testdata
 	./testdata/base
+	./testdata/disableerrorchecks
 	./testdata/enableall
 )
