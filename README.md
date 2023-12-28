@@ -20,7 +20,8 @@ Only the `span.End()` check is enabled by default. The others can be enabled wit
 
 ```txt
 $ spancheck -h
-Usage of spancheck:
+...
+Flags:
   -disable-end-check
         disable the check for calling span.End() after span creation
   -enable-all
