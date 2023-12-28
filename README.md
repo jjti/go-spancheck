@@ -38,7 +38,7 @@ Flags:
 
 ### Ignore check signatures
 
-The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it's convenient to set span's status and record errors from utility methods [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors)]. To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
+The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it's convenient to set spans' status and record errors from utility methods [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors)]. To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
 
 For example, by default, the code below would have the warning shown:
 
