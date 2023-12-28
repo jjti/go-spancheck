@@ -58,9 +58,15 @@ Flags:
 
 ### Ignore check signatures
 
-The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it's convenient to set spans' status and record errors from utility methods [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors)]. To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
+The `span.SetStatus()` and `span.RecordError()` checks warn when there is:
 
-For example, by default, the code below would have the warning shown:
+1. a path to return statement
+1. that returns an error
+1. without a call (to `SetStatus` or `RecordError`, respectively)
+
+But it's convenient to call `SetStatus` and `RecordError` from utility methods [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors)]. To support that, the `ignore-*-check-signatures` settings will suppress warnings if the configured function is present in the path.
+
+For example, by default, the code below would have warnings as shown:
 
 ```go
 func task(ctx context.Context) error {
@@ -80,7 +86,7 @@ func recordErr(span trace.Span, err error) error {
 }
 ```
 
-Using the `-ignore-set-status-check-signatures` flag, the error above can be suppressed:
+The warnings are can be ignored by setting `-ignore-set-status-check-signatures` flag to `recordErr`:
 
 ```bash
 spancheck -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
@@ -193,7 +199,7 @@ OpenTelemetry docs: [Record errors](https://opentelemetry.io/docs/instrumentatio
 
 ## Attribution
 
-This linter is the result of liberal copying of:
+This linter is the product of liberal copying of:
 
 - [github.com/golang/tools/go/analysis/passes/lostcancel](https://github.com/golang/tools/tree/master/go/analysis/passes/lostcancel) (half the linter)
 - [github.com/tomarrell/wrapcheck](https://github.com/tomarrell/wrapcheck) (error type checking and config)
