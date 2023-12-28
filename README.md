@@ -16,7 +16,7 @@ spanlint ./...
 
 ## Configuration
 
-```bash
+```txt
 $ spanlint -h
 Usage of spanlint:
   -disable-end-check
@@ -96,15 +96,15 @@ Not calling `SetStatus` prevents the `status` attribute from being set to `error
 
 ```go
 func _() error {
-	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // span.SetStatus is not called on all paths
-	defer span.End()
+    _, span := otel.Tracer("foo").Start(context.Background(), "bar") // span.SetStatus is not called on all paths
+    defer span.End()
 
-	if err := subTask(); err != nil {
+    if err := subTask(); err != nil {
         span.RecordError(err)
-		return errors.New(err) // return can be reached without calling span.SetStatus
-	}
+        return errors.New(err) // return can be reached without calling span.SetStatus
+    }
 
-	return nil
+    return nil
 }
 ```
 
@@ -119,10 +119,10 @@ func _() error {
     _, span := otel.Tracer("foo").Start(context.Background(), "bar") // span.RecordError is not called on all paths
     defer span.End()
 
-	if err := subTask(); err != nil {
+    if err := subTask(); err != nil {
         span.SetStatus(codes.Error, err.Error())
         return errors.New(err) // return can be reached without calling span.RecordError
-	}
+    }
 
     return nil
 }
