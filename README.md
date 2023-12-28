@@ -24,20 +24,20 @@ Usage of spanlint:
   -enable-all
         enable all checks, overriding individual check flags
   -enable-record-error-check
-        enable the check for calling span.RecordError(err) when returning an error
+        enable check for a span.RecordError(err) call when returning an error
   -enable-set-status-check
-        enable the check for calling span.SetStatus(codes.Error, msg) when returning an error
+        enable check for a span.SetStatus(codes.Error, msg) call when returning an error
   -ignore-record-error-check-signatures string
-        comma-separated list of function signature regex that should disable the span.RecordError(err) checks on errors
+        comma-separated list of function signature regex that disable the span.RecordError(err) check on errors
   -ignore-set-status-check-signatures string
-        comma-separated list of function signature regex that should disable the span.SetStatus(codes.Error, msg) checks on errors
+        comma-separated list of function signature regex that disable the span.SetStatus(codes.Error, msg) check on errors
 ```
 
 Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
 
 ### Ignore check signatures
 
-The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it is convenient to set span's status and record errors from utility methods [1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors). To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
+The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it's convenient to set span's status and record errors from utility methods [[1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors)]. To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
 
 For example, by default, the code below would have the warning shown:
 
@@ -103,6 +103,10 @@ For spans to be _really_ useful, developers need to:
 OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
 
 Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
+
+## Checks
+
+This linter supports three checks, each documented below. Only the check for `span.End()` is enabled by default. See [Configuration](#configuration) for instructions on enabling the others.
 
 ### `span.End()` Check
 

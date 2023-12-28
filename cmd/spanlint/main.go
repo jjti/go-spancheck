@@ -22,10 +22,10 @@ func main() {
 	config := spanlint.NewDefaultConfig()
 	flag.BoolVar(&config.DisableEndCheck, "disable-end-check", config.DisableEndCheck, "disable the check for calling span.End() after span creation")
 	flag.BoolVar(&config.EnableAll, "enable-all", config.EnableAll, "enable all checks, overriding individual check flags")
-	flag.BoolVar(&config.EnableSetStatusCheck, "enable-set-status-check", config.EnableSetStatusCheck, "enable the check for calling span.SetStatus(codes.Error, msg) when returning an error")
-	ignoreSetStatusCheckSignatures := flag.String(ignoreSetStatusCheckSignatures, "", "comma-separated list of function signature regex that should disable the span.SetStatus(codes.Error, msg) checks on errors")
-	flag.BoolVar(&config.EnableRecordErrorCheck, "enable-record-error-check", config.EnableRecordErrorCheck, "enable the check for calling span.RecordError(err) when returning an error")
-	ignoreRecordErrorCheckSignatures := flag.String(ignoreRecordErrorCheckSignatures, "", "comma-separated list of function signature regex that should disable the span.RecordError(err) checks on errors")
+	flag.BoolVar(&config.EnableSetStatusCheck, "enable-set-status-check", config.EnableSetStatusCheck, "enable check for a span.SetStatus(codes.Error, msg) call when returning an error")
+	ignoreSetStatusCheckSignatures := flag.String(ignoreSetStatusCheckSignatures, "", "comma-separated list of function signature regex that disable the span.SetStatus(codes.Error, msg) check on errors")
+	flag.BoolVar(&config.EnableRecordErrorCheck, "enable-record-error-check", config.EnableRecordErrorCheck, "enable check for a span.RecordError(err) call when returning an error")
+	ignoreRecordErrorCheckSignatures := flag.String(ignoreRecordErrorCheckSignatures, "", "comma-separated list of function signature regex that disable the span.RecordError(err) check on errors")
 	flag.Parse()
 
 	// Parse the signatures.
