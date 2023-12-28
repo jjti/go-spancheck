@@ -16,6 +16,8 @@ spanlint ./...
 
 ## Configuration
 
+Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
+
 ```txt
 $ spanlint -h
 Usage of spanlint:
@@ -32,8 +34,6 @@ Usage of spanlint:
   -ignore-set-status-check-signatures string
         comma-separated list of function signature regex that disable the span.SetStatus(codes.Error, msg) check on errors
 ```
-
-Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
 
 ### Ignore check signatures
 
@@ -71,13 +71,9 @@ Tracing is a celebrated [[1](https://andydote.co.uk/2023/09/19/tracing-is-better
 
 ```go
 import (
-	"context"
-	"errors"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 )
-
 
 func task(ctx context.Context) error {
     ctx, span := otel.Tracer("foo").Start(ctx, "bar")
