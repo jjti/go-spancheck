@@ -14,15 +14,18 @@ func Test(t *testing.T) {
 
 	for dir, config := range map[string]*spanlint.Config{
 		"base": spanlint.NewDefaultConfig(),
-		"enableall": {
-			EnableSetStatusCheck:   true,
-			EnableRecordErrorCheck: true,
-		},
 		"disableerrorchecks": {
 			EnableSetStatusCheck:             true,
 			IgnoreSetStatusCheckSignatures:   regexp.MustCompile("telemetry.Record"),
 			EnableRecordErrorCheck:           true,
 			IgnoreRecordErrorCheckSignatures: regexp.MustCompile("telemetry.Record"),
+		},
+		"enableall": {
+			EnableAll: true,
+		},
+		"enablechecks": {
+			EnableSetStatusCheck:   true,
+			EnableRecordErrorCheck: true,
 		},
 	} {
 		dir := dir
