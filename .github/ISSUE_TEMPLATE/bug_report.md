@@ -3,7 +3,7 @@ name: Bug report
 about: Create a bug report to help improve the linter
 title: "[BUG] <Title>"
 labels: bug
-assignees: jjti
+assignees: ''
 
 ---
 
