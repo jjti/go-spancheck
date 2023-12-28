@@ -127,6 +127,8 @@ This linter supports three checks, each documented below. Only the check for `sp
 
 ### `span.End()` Check
 
+Enabled by default. Disable with `-disable-end-check`.
+
 Not calling `End` can cause memory leaks and prevents spans from being closed.
 
 > Any Span that is created MUST also be ended. This is the responsibility of the user. Implementations of this API may leak memory or other resources if Spans are not ended.
@@ -142,6 +144,8 @@ func task(ctx context.Context) error {
 ```
 
 ### `span.SetStatus(codes.Error, "msg")` Check
+
+Disabled by default. Enable with `-enable-set-status-check`.
 
 Developers should call `SetStatus` on spans. The status attribute is an important, first-class attribute:
 
@@ -166,6 +170,8 @@ func _() error {
 OpenTelemetry docs: [Set span status](https://opentelemetry.io/docs/instrumentation/go/manual/#set-span-status).
 
 ### `span.RecordError(err)` Check
+
+Disabled by default. Enable with `-enable-record-error-check`.
 
 Calling `RecordError` creates a new exception-type [event (structured log message)](https://opentelemetry.io/docs/concepts/signals/traces/#span-events) on the span. This is recommended to capture the error's stack trace.
 
