@@ -21,6 +21,8 @@ $ spanlint -h
 Usage of spanlint:
   -disable-end-check
         disable the check for calling span.End() after span creation
+  -enable-all
+        enable all checks, overriding individual check flags
   -enable-record-error-check
         enable the check for calling span.RecordError(err) when returning an error
   -enable-set-status-check
@@ -29,6 +31,38 @@ Usage of spanlint:
         comma-separated list of function signature regex that should disable the span.RecordError(err) checks on errors
   -ignore-set-status-check-signatures string
         comma-separated list of function signature regex that should disable the span.SetStatus(codes.Error, msg) checks on errors
+```
+
+Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
+
+### Ignore check signatures
+
+The `span.SetStatus()` and `span.RecordError()` checks warn when there is a path to return statement, with an error, without a call (to `SetStatus`, or `RecordError`, respectively). But it is convenient to set span's status and record errors from utility methods [1](https://andydote.co.uk/2023/09/19/tracing-is-better/#step-2-wrap-the-errors). To support that, the `ignore-*-check-signatures` settings can be used to ignore paths to return statements if that signature is present.
+
+For example, by default, the code below would have the warning shown:
+
+```go
+func task(ctx context.Context) error {
+    ctx, span := otel.Tracer("foo").Start(ctx, "bar") // span.SetStatus is not called on all paths
+    defer span.End()
+
+    if err := subTask(ctx); err != nil {
+        return recordErr(span, err) // return can be reached without calling span.SetStatus
+    }
+
+    return nil
+
+func recordErr(span trace.Span, err error) error {
+	span.SetStatus(codes.Error, err.Error())
+	span.RecordError(err)
+	return err
+}
+```
+
+Using the `-ignore-set-status-check-signatures` flag, the error above can be suppressed:
+
+```bash
+spanlint -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
 ```
 
 ## Background
@@ -70,7 +104,7 @@ OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentati
 
 Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
 
-### Forgetting to call `span.End()`
+### `span.End()` Check
 
 Not calling `End` can cause memory leaks and prevents spans from being closed.
 
@@ -86,9 +120,9 @@ func task(ctx context.Context) error {
 }
 ```
 
-### Forgetting to call `span.SetStatus(codes.Error, "msg")`
+### `span.SetStatus(codes.Error, "msg")` Check
 
-Not calling `SetStatus` prevents the `status` attribute from being set to `error` which decreases the utility of spans because:
+Developers should call `SetStatus` on spans. The status attribute is an important, first-class attribute:
 
 1. observability platforms and APMs differentiate "success" vs "failure" using [span's status codes](https://docs.datadoghq.com/tracing/metrics/).
 1. telemetry collector agents, like the [Open Telemetry Collector's Tail Sampling Processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md#:~:text=Sampling%20Processor.-,status_code,-%3A%20Sample%20based%20upon), are configurable to sample `Error` spans at a higher rate than `OK` spans.
@@ -110,7 +144,7 @@ func _() error {
 
 OpenTelemetry docs: [Set span status](https://opentelemetry.io/docs/instrumentation/go/manual/#set-span-status).
 
-### Forgetting to call `span.RecordError(err)`
+### `span.RecordError(err)` Check
 
 Calling `RecordError` creates a new exception-type [event (structured log message)](https://opentelemetry.io/docs/concepts/signals/traces/#span-events) on the span. This is recommended to capture the error's stack trace.
 

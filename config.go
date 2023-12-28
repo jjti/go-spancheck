@@ -4,7 +4,11 @@ import "regexp"
 
 // Config is a configuration for the spanlint analyzer.
 type Config struct {
-	// EnableEndCheck enables the check for calling span.End().
+	// EnableAll enables all checks and takes precedence over other fields like
+	// DisableEndCheck. Ignore*CheckSignatures still apply.
+	EnableAll bool
+
+	// DisableEndCheck enables the check for calling span.End().
 	DisableEndCheck bool
 
 	// EnableSetStatusCheck enables the check for calling span.SetStatus.
@@ -27,6 +31,7 @@ type Config struct {
 func NewDefaultConfig() *Config {
 	return &Config{
 		DisableEndCheck:                  false,
+		EnableAll:                        false,
 		EnableSetStatusCheck:             false,
 		IgnoreSetStatusCheckSignatures:   nil,
 		EnableRecordErrorCheck:           false,

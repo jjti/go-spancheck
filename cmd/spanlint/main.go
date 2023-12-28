@@ -21,6 +21,7 @@ func main() {
 	// Set and parse the flags.
 	config := spanlint.NewDefaultConfig()
 	flag.BoolVar(&config.DisableEndCheck, "disable-end-check", config.DisableEndCheck, "disable the check for calling span.End() after span creation")
+	flag.BoolVar(&config.EnableAll, "enable-all", config.EnableAll, "enable all checks, overriding individual check flags")
 	flag.BoolVar(&config.EnableSetStatusCheck, "enable-set-status-check", config.EnableSetStatusCheck, "enable the check for calling span.SetStatus(codes.Error, msg) when returning an error")
 	ignoreSetStatusCheckSignatures := flag.String(ignoreSetStatusCheckSignatures, "", "comma-separated list of function signature regex that should disable the span.SetStatus(codes.Error, msg) checks on errors")
 	flag.BoolVar(&config.EnableRecordErrorCheck, "enable-record-error-check", config.EnableRecordErrorCheck, "enable the check for calling span.RecordError(err) when returning an error")
@@ -36,7 +37,7 @@ func main() {
 }
 
 func parseSignatures(sigs *string) *regexp.Regexp {
-	if sigs == nil {
+	if sigs == nil || *sigs == "" {
 		return nil
 	}
 
