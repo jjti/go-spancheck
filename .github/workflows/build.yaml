@@ -42,7 +42,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/checkout@v3
-      - run: cd testdata && make
+      - run: make testvendor
       - run: go test -coverpkg=. -coverprofile=coverage.out ./...
       - uses: shogo82148/actions-goveralls@v1
         with:
