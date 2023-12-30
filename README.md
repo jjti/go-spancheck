@@ -78,6 +78,7 @@ func task(ctx context.Context) error {
     }
 
     return nil
+}
 
 func recordErr(span trace.Span, err error) error {
 	span.SetStatus(codes.Error, err.Error())
@@ -118,14 +119,17 @@ func task(ctx context.Context) error {
 
 For spans to be _really_ useful, developers need to:
 
-1. call `span.End()`
+1. call `span.End()` always
 1. call `span.SetStatus(codes.Error, msg)` on error
 1. call `span.RecordError(err)` on error
 1. call `span.SetAttributes()` liberally
 
-OpenTelemetry docs: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
+This linter helps developers take steps 1-3.
 
-Uptrace tutorial: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
+Docs:
+
+- OpenTelemetry: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
+- Uptrace: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
 
 ## Checks
 
