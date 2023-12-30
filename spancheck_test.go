@@ -15,9 +15,9 @@ func Test(t *testing.T) {
 		"base": spancheck.NewConfigFromFlags(),
 		"disableerrorchecks": {
 			EnableSetStatusCheck:                  true,
-			IgnoreSetStatusCheckSignaturesSlice:   []string{"telemetry.Record"},
+			IgnoreSetStatusCheckSignaturesSlice:   []string{"telemetry.Record", "recordErr"},
 			EnableRecordErrorCheck:                true,
-			IgnoreRecordErrorCheckSignaturesSlice: []string{"telemetry.Record"},
+			IgnoreRecordErrorCheckSignaturesSlice: []string{"telemetry.Record", "recordErr"},
 		},
 		"enableall": {
 			EnableAll: true,

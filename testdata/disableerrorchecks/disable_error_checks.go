@@ -6,6 +6,7 @@ import (
 
 	"github.com/jjti/go-spancheck/testdata/disableerrorchecks/telemetry"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // incorrect
@@ -35,3 +36,23 @@ func _() error {
 
 	return nil
 }
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer span.End()
+
+	err := errors.New("foo")
+	err = telemetry.Record(span, err)
+	return err
+}
+
+func _() error {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer span.End()
+
+	err := errors.New("foo")
+	recordErr(span, err)
+	return err
+}
+
+func recordErr(span trace.Span, err error) {}

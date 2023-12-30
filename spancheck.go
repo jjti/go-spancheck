@@ -167,7 +167,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		return // missing type information
 	}
 
-	// Check for missing Ends().
+	// Check for missing calls.
 	for _, sv := range spanVars {
 		if !config.DisableEndCheck || config.EnableAll {
 			// Check if there's no End to the span.
@@ -246,10 +246,18 @@ func missingSpanCalls(
 		for _, subStmt := range stmts {
 			stack := []ast.Node{}
 			ast.Inspect(subStmt, func(n ast.Node) bool {
-				switch n.(type) {
+				switch n := n.(type) {
 				case *ast.FuncLit:
 					if len(stack) > 0 {
 						return false // don't stray into nested functions
+					}
+				case *ast.CallExpr:
+					if ident, ok := n.Fun.(*ast.Ident); ok {
+						fnSig := pass.TypesInfo.ObjectOf(ident).String()
+						if ignoreCheckSig != nil && ignoreCheckSig.MatchString(fnSig) {
+							found = true
+							return false
+						}
 					}
 				case nil:
 					stack = stack[:len(stack)-1] // pop
@@ -319,7 +327,7 @@ outer:
 		return nil
 	}
 
-	// Does the defining block return without using v.End()?
+	// Does the defining block return without making the call?
 	if ret := defBlock.Return(); ret != nil {
 		return checkErr(pass, ret)
 	}
