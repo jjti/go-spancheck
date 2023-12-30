@@ -81,9 +81,9 @@ func task(ctx context.Context) error {
 }
 
 func recordErr(span trace.Span, err error) error {
-	span.SetStatus(codes.Error, err.Error())
-	span.RecordError(err)
-	return err
+    span.SetStatus(codes.Error, err.Error())
+    span.RecordError(err)
+    return err
 }
 ```
 
