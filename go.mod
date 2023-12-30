@@ -1,6 +1,6 @@
 module github.com/jjti/go-spancheck
 
-go 1.21.3
+go 1.20
 
 require golang.org/x/tools v0.16.1
 
