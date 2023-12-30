@@ -124,12 +124,10 @@ For spans to be _really_ useful, developers need to:
 1. call `span.RecordError(err)` on error
 1. call `span.SetAttributes()` liberally
 
-This linter helps developers take steps 1-3.
-
-Docs:
-
 - OpenTelemetry: [Creating spans](https://opentelemetry.io/docs/instrumentation/go/manual/#creating-spans)
 - Uptrace: [OpenTelemetry Go Tracing API](https://uptrace.dev/opentelemetry/go-tracing.html#quickstart)
+
+This linter helps developers with steps 1-3.
 
 ## Checks
 
