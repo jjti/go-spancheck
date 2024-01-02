@@ -16,6 +16,10 @@ spancheck ./...
 
 ## Example
 
+```bash
+spancheck -checks 'end,set-status,record-error' ./...
+```
+
 ```go
 func _() error {
     // span.End is not called on all paths, possible memory leak
@@ -36,24 +40,16 @@ func _() error {
 
 ## Configuration
 
-Only the `span.End()` check is enabled by default. The others can be enabled with `-enable-all`, `-enable-record-error-check`, or `-enable-set-status-check`.
+Only the `span.End()` check is enabled by default. The others can be enabled with `-checks 'end,set-status,record-error'`.
 
 ```txt
 $ spancheck -h
 ...
 Flags:
-  -disable-end-check
-        disable the check for calling span.End() after span creation
-  -enable-all
-        enable all checks, overriding individual check flags
-  -enable-record-error-check
-        enable check for a span.RecordError(err) call when returning an error
-  -enable-set-status-check
-        enable check for a span.SetStatus(codes.Error, msg) call when returning an error
-  -ignore-record-error-check-signatures string
-        comma-separated list of function signature regex that disable the span.RecordError(err) check on errors
-  -ignore-set-status-check-signatures string
-        comma-separated list of function signature regex that disable the span.SetStatus(codes.Error, msg) check on errors
+  -checks string
+        comma-separated list of checks to enable (options: end, set-status, record-error) (default "end")
+  -ignore-check-signatures string
+        comma-separated list of regex for function signatures that disable checks on errors
 ```
 
 ### Ignore check signatures
@@ -87,10 +83,10 @@ func recordErr(span trace.Span, err error) error {
 }
 ```
 
-The warnings are can be ignored by setting `-ignore-set-status-check-signatures` flag to `recordErr`:
+The warnings are can be ignored by setting `-ignore-check-signatures` flag to `recordErr`:
 
 ```bash
-spancheck -enable-set-status-check -ignore-set-status-check-signatures 'recordErr' ./...
+spancheck -checks 'end,set-status,record-error' -ignore-check-signatures 'recordErr' ./...
 ```
 
 ## Problem Statement
@@ -133,9 +129,9 @@ This linter helps developers with steps 1-3.
 
 This linter supports three checks, each documented below. Only the check for `span.End()` is enabled by default. See [Configuration](#configuration) for instructions on enabling the others.
 
-### `span.End()` Check
+### `span.End()`
 
-Enabled by default. Disable with `-disable-end-check`.
+Enabled by default.
 
 Not calling `End` can cause memory leaks and prevents spans from being closed.
 
@@ -151,9 +147,9 @@ func task(ctx context.Context) error {
 }
 ```
 
-### `span.SetStatus(codes.Error, "msg")` Check
+### `span.SetStatus(codes.Error, "msg")`
 
-Disabled by default. Enable with `-enable-set-status-check`.
+Disabled by default. Enable with `-checks 'set-status'`.
 
 Developers should call `SetStatus` on spans. The status attribute is an important, first-class attribute:
 
@@ -177,9 +173,9 @@ func _() error {
 
 OpenTelemetry docs: [Set span status](https://opentelemetry.io/docs/instrumentation/go/manual/#set-span-status).
 
-### `span.RecordError(err)` Check
+### `span.RecordError(err)`
 
-Disabled by default. Enable with `-enable-record-error-check`.
+Disabled by default. Enable with `-checks 'record-error'`.
 
 Calling `RecordError` creates a new exception-type [event (structured log message)](https://opentelemetry.io/docs/concepts/signals/traces/#span-events) on the span. This is recommended to capture the error's stack trace.
 

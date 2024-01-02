@@ -5,5 +5,4 @@ use (
 	./testdata/base
 	./testdata/disableerrorchecks
 	./testdata/enableall
-	./testdata/enablechecks
 )

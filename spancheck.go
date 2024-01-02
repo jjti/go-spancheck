@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"log"
 	"regexp"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -169,7 +170,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 	// Check for missing calls.
 	for _, sv := range spanVars {
-		if !config.DisableEndCheck || config.EnableAll {
+		if slices.Contains(config.EnabledChecks, EndCheck) {
 			// Check if there's no End to the span.
 			if ret := missingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }, nil); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
@@ -177,17 +178,17 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 			}
 		}
 
-		if config.EnableSetStatusCheck || config.EnableAll {
+		if slices.Contains(config.EnabledChecks, SetStatusCheck) {
 			// Check if there's no SetStatus to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr, config.ignoreSetStatusCheckSignatures); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "SetStatus", returnsErr, config.ignoreChecksSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.SetStatus", sv.vr.Name())
 			}
 		}
 
-		if config.EnableRecordErrorCheck || config.EnableAll {
+		if slices.Contains(config.EnabledChecks, RecordErrorCheck) {
 			// Check if there's no RecordError to the span setting an error.
-			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.ignoreRecordErrorCheckSignatures); ret != nil {
+			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.ignoreChecksSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.RecordError", sv.vr.Name())
 			}
