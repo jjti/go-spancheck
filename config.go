@@ -3,7 +3,7 @@ package spancheck
 import (
 	"flag"
 	"fmt"
-	"log/slog"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -116,7 +116,7 @@ func createRegex(sigs []string) *regexp.Regexp {
 	regex := fmt.Sprintf("(%s)", strings.Join(sigs, "|"))
 	regexCompiled, err := regexp.Compile(regex)
 	if err != nil {
-		slog.Warn("failed to compile regex from signature flag", "regex", regex, "err", err)
+		log.Default().Print("[WARN] failed to compile regex from signature flag", "regex", regex, "err", err)
 		return nil
 	}
 

@@ -6,7 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"log/slog"
+	"log"
 	"regexp"
 	"strings"
 
@@ -319,7 +319,7 @@ outer:
 		}
 	}
 	if defBlock == nil {
-		slog.Error("internal error: can't find defining block for span var")
+		log.Default().Print("[ERROR] internal error: can't find defining block for span var")
 	}
 
 	// Is the call "used" in the remainder of its defining block?
@@ -427,19 +427,19 @@ func isErrorType(t types.Type) bool {
 // copied out of the internal go util: https://github.com/golang/tools/blob/master/internal/analysisinternal/extractdoc.go
 func extractDoc(content, name string) string {
 	if content == "" {
-		slog.Warn("empty content")
+		log.Default().Print("[WARN] empty content")
 		return ""
 	}
 
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", content, parser.ParseComments|parser.PackageClauseOnly)
 	if err != nil {
-		slog.Warn("failed to parse doc.go", err)
+		log.Default().Print("[WARN] failed to parse doc.go", err)
 		return ""
 	}
 
 	if f.Doc == nil {
-		slog.Warn("no package doc comment")
+		log.Default().Print("[WARN] no package doc comment")
 		return ""
 	}
 
@@ -450,12 +450,12 @@ func extractDoc(content, name string) string {
 			body = strings.TrimSpace(body)
 			rest := strings.TrimPrefix(body, name+":")
 			if rest == body {
-				slog.Warn("package doc comment contains no '" + name + "' heading")
+				log.Default().Print("[ERROR] package doc comment contains no '" + name + "' heading")
 			}
 			return strings.TrimSpace(rest)
 		}
 	}
 
-	slog.Warn("package doc comment contains no 'Analyzer " + name + "' heading")
+	log.Default().Print("[ERROR] package doc comment contains no 'Analyzer " + name + "' heading")
 	return ""
 }
