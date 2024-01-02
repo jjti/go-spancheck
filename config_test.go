@@ -1,6 +1,7 @@
 package spancheck
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,13 +12,12 @@ func Test_parseChecks(t *testing.T) {
 
 	for flag, tc := range map[string]struct {
 		checks []Check
-		err    error
 	}{
 		"": {
-			err: errNoChecks,
+			checks: []Check{},
 		},
 		"unknown": {
-			err: errInvalidCheck,
+			checks: []Check{},
 		},
 		"end": {
 			checks: []Check{EndCheck},
@@ -34,12 +34,7 @@ func Test_parseChecks(t *testing.T) {
 			t.Parallel()
 			r := require.New(t)
 
-			checks, err := parseChecks(flag)
-			if tc.err != nil {
-				r.ErrorIs(err, tc.err)
-				return
-			}
-			r.NoError(err)
+			checks := parseChecks(strings.Split(flag, ","))
 			r.Equal(tc.checks, checks)
 		})
 	}

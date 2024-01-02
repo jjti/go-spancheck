@@ -14,18 +14,18 @@ func Test(t *testing.T) {
 	for dir, config := range map[string]*spancheck.Config{
 		"base": spancheck.NewConfigFromFlags(),
 		"disableerrorchecks": {
-			EnabledChecks: []spancheck.Check{
-				spancheck.EndCheck,
-				spancheck.RecordErrorCheck,
-				spancheck.SetStatusCheck,
+			EnabledChecks: []string{
+				spancheck.EndCheck.String(),
+				spancheck.RecordErrorCheck.String(),
+				spancheck.SetStatusCheck.String(),
 			},
 			IgnoreChecksSignaturesSlice: []string{"telemetry.Record", "recordErr"},
 		},
 		"enableall": {
-			EnabledChecks: []spancheck.Check{
-				spancheck.EndCheck,
-				spancheck.RecordErrorCheck,
-				spancheck.SetStatusCheck,
+			EnabledChecks: []string{
+				spancheck.EndCheck.String(),
+				spancheck.RecordErrorCheck.String(),
+				spancheck.SetStatusCheck.String(),
 			},
 		},
 	} {

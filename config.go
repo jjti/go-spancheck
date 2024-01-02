@@ -1,7 +1,6 @@
 package spancheck
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -11,45 +10,59 @@ import (
 )
 
 // Check is a type of check that can be enabled or disabled.
-type Check string
+type Check int
 
 const (
 	// EndCheck if enabled, checks that span.End() is called after span creation and before the function returns.
-	EndCheck Check = "end"
+	EndCheck Check = iota
 
 	// SetStatusCheck if enabled, checks that `span.SetStatus(codes.Error, msg)` is called when returning an error.
-	SetStatusCheck = "set-status"
+	SetStatusCheck
 
 	// RecordErrorCheck if enabled, checks that span.RecordError(err) is called when returning an error.
-	RecordErrorCheck = "record-error"
+	RecordErrorCheck
 )
 
-var (
-	// AllChecks is a list of all checks.
-	AllChecks = []string{
-		string(EndCheck),
-		string(SetStatusCheck),
-		string(RecordErrorCheck),
+func (c Check) String() string {
+	switch c {
+	case EndCheck:
+		return "end"
+	case SetStatusCheck:
+		return "set-status"
+	case RecordErrorCheck:
+		return "record-error"
+	default:
+		return ""
 	}
+}
 
-	errNoChecks     = errors.New("no checks enabled")
-	errInvalidCheck = errors.New("invalid check")
+var (
+	// Checks is a list of all checks by name.
+	Checks = map[string]Check{
+		EndCheck.String():         EndCheck,
+		SetStatusCheck.String():   SetStatusCheck,
+		RecordErrorCheck.String(): RecordErrorCheck,
+	}
 )
 
 // Config is a configuration for the spancheck analyzer.
 type Config struct {
 	fs flag.FlagSet
 
-	// EnabledChecks is a list of checks that are enabled.
-	EnabledChecks []Check
-
-	// ignoreChecksSignatures is a regex that, if matched, disables the
-	// SetStatus and RecordError checks on error.
-	ignoreChecksSignatures *regexp.Regexp
+	// EnabledChecks is a list of checks to enable by name.
+	EnabledChecks []string
 
 	// IgnoreChecksSignaturesSlice is a slice of strings that are turned into
 	// the IgnoreSetStatusCheckSignatures regex.
 	IgnoreChecksSignaturesSlice []string
+
+	endCheckEnabled    bool
+	setStatusEnabled   bool
+	recordErrorEnabled bool
+
+	// ignoreChecksSignatures is a regex that, if matched, disables the
+	// SetStatus and RecordError checks on error.
+	ignoreChecksSignatures *regexp.Regexp
 }
 
 // NewConfigFromFlags returns a new Config with default values and flags for CLI usage.
@@ -59,16 +72,12 @@ func NewConfigFromFlags() *Config {
 	cfg.fs = flag.FlagSet{}
 
 	// Set the list of checks to enable.
-	checkDefault := []string{}
-	for _, check := range cfg.EnabledChecks {
-		checkDefault = append(checkDefault, string(check))
+	checkOptions := []string{}
+	for check := range Checks {
+		checkOptions = append(checkOptions, check)
 	}
-	checkStrings := cfg.fs.String("checks", strings.Join(checkDefault, ","), fmt.Sprintf("comma-separated list of checks to enable (options: %v)", strings.Join(AllChecks, ", ")))
-	checks, err := parseChecks(*checkStrings)
-	if err != nil {
-		log.Default().Fatalf("failed to parse checks: %v", err)
-	}
-	cfg.EnabledChecks = checks
+	checkStrings := cfg.fs.String("checks", "end", fmt.Sprintf("comma-separated list of checks to enable (options: %v)", strings.Join(checkOptions, ", ")))
+	cfg.EnabledChecks = strings.Split(*checkStrings, ",")
 
 	// Set the list of function signatures to ignore checks for.
 	ignoreCheckSignatures := flag.String("ignore-check-signatures", "", "comma-separated list of regex for function signatures that disable checks on errors")
@@ -80,8 +89,18 @@ func NewConfigFromFlags() *Config {
 // NewDefaultConfig returns a new Config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
-		EnabledChecks: []Check{EndCheck},
+		EnabledChecks: []string{EndCheck.String()},
 	}
+}
+
+// finalize parses checks and signatures from the public string slices of Config.
+func (c *Config) finalize() {
+	c.parseSignatures()
+
+	checks := parseChecks(c.EnabledChecks)
+	c.endCheckEnabled = slices.Contains(checks, EndCheck)
+	c.setStatusEnabled = slices.Contains(checks, SetStatusCheck)
+	c.recordErrorEnabled = slices.Contains(checks, RecordErrorCheck)
 }
 
 // parseSignatures sets the Ignore*CheckSignatures regex from the string slices.
@@ -91,30 +110,27 @@ func (c *Config) parseSignatures() {
 	}
 }
 
-func parseChecks(checksFlag string) ([]Check, error) {
-	if checksFlag == "" {
-		return nil, errNoChecks
+func parseChecks(checksSlice []string) []Check {
+	if len(checksSlice) == 0 {
+		return nil
 	}
 
 	checks := []Check{}
-	for _, check := range strings.Split(checksFlag, ",") {
-		check = strings.TrimSpace(check)
-		if check == "" {
+	for _, check := range checksSlice {
+		checkName := strings.TrimSpace(check)
+		if checkName == "" {
 			continue
 		}
 
-		if !slices.Contains(AllChecks, check) {
-			return nil, fmt.Errorf("%w: %s", errInvalidCheck, check)
+		check, ok := Checks[checkName]
+		if !ok {
+			continue
 		}
 
-		checks = append(checks, Check(check))
+		checks = append(checks, check)
 	}
 
-	if len(checks) == 0 {
-		return nil, errNoChecks
-	}
-
-	return checks, nil
+	return checks
 }
 
 func parseSignatures(sigFlag string) *regexp.Regexp {
