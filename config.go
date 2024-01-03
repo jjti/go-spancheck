@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -98,9 +97,9 @@ func (c *Config) finalize() {
 	c.parseSignatures()
 
 	checks := parseChecks(c.EnabledChecks)
-	c.endCheckEnabled = slices.Contains(checks, EndCheck)
-	c.setStatusEnabled = slices.Contains(checks, SetStatusCheck)
-	c.recordErrorEnabled = slices.Contains(checks, RecordErrorCheck)
+	c.endCheckEnabled = contains(checks, EndCheck)
+	c.setStatusEnabled = contains(checks, SetStatusCheck)
+	c.recordErrorEnabled = contains(checks, RecordErrorCheck)
 }
 
 // parseSignatures sets the Ignore*CheckSignatures regex from the string slices.
@@ -164,4 +163,14 @@ func createRegex(sigs []string) *regexp.Regexp {
 	}
 
 	return regexCompiled
+}
+
+func contains(s []Check, e Check) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+
+	return false
 }
