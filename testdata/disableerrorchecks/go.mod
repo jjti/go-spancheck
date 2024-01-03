@@ -1,6 +1,6 @@
 module github.com/jjti/go-spancheck/testdata/disableerrorchecks
 
-go 1.21.3
+go 1.20
 
 require go.opentelemetry.io/otel v1.21.0
 
