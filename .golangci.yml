@@ -12,6 +12,7 @@ linters:
     - containedctx
     - decorder # checks declaration order and count of types, constants, variables and functions
     - dogsled
+    - dupword # checks for duplicate words in the source code
     - durationcheck # checks for two durations multiplied together
     - errcheck
     - errname
