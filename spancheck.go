@@ -77,7 +77,7 @@ type spanVar struct {
 	vr   *types.Var
 }
 
-// runFunc checks if the the node is a function, has a span, and the span never has SetStatus set.
+// runFunc checks if the node is a function, has a span, and the span never has SetStatus set.
 func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	// copying https://cs.opensource.google/go/x/tools/+/master:go/analysis/passes/lostcancel/lostcancel.go
 
