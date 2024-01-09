@@ -3,8 +3,6 @@ package spancheck
 import (
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_parseChecks(t *testing.T) {
@@ -32,10 +30,16 @@ func Test_parseChecks(t *testing.T) {
 		flag, tc := flag, tc
 		t.Run(flag, func(t *testing.T) {
 			t.Parallel()
-			r := require.New(t)
-
 			checks := parseChecks(strings.Split(flag, ","))
-			r.Equal(tc.checks, checks)
+			if len(checks) != len(tc.checks) {
+				t.Fatalf("Unexpected checks length=%d, want=%d", len(checks), len(tc.checks))
+			}
+			for i, check := range tc.checks {
+				want := tc.checks[i]
+				if check != want {
+					t.Fatalf("Unexpected check=%+v, want=%+v", check, want)
+				}
+			}
 		})
 	}
 }
