@@ -28,12 +28,6 @@ var (
 	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 )
 
-// NewAnalyzer returns a new analyzer that checks for mistakes with OTEL trace spans.
-// Its config is sourced from flags.
-func NewAnalyzer() *analysis.Analyzer {
-	return newAnalyzer(NewConfigFromFlags())
-}
-
 // NewAnalyzerWithConfig returns a new analyzer configured with the Config passed in.
 // Its config can be set for testing.
 func NewAnalyzerWithConfig(config *Config) *analysis.Analyzer {

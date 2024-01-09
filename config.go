@@ -64,27 +64,6 @@ type Config struct {
 	ignoreChecksSignatures *regexp.Regexp
 }
 
-// NewConfigFromFlags returns a new Config with default values and flags for CLI usage.
-func NewConfigFromFlags() *Config {
-	cfg := NewDefaultConfig()
-
-	cfg.fs = flag.FlagSet{}
-
-	// Set the list of checks to enable.
-	checkOptions := []string{}
-	for check := range Checks {
-		checkOptions = append(checkOptions, check)
-	}
-	checkStrings := cfg.fs.String("checks", "end", fmt.Sprintf("comma-separated list of checks to enable (options: %v)", strings.Join(checkOptions, ", ")))
-	cfg.EnabledChecks = strings.Split(*checkStrings, ",")
-
-	// Set the list of function signatures to ignore checks for.
-	ignoreCheckSignatures := flag.String("ignore-check-signatures", "", "comma-separated list of regex for function signatures that disable checks on errors")
-	cfg.ignoreChecksSignatures = parseSignatures(*ignoreCheckSignatures)
-
-	return cfg
-}
-
 // NewDefaultConfig returns a new Config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
@@ -105,6 +84,10 @@ func (c *Config) finalize() {
 // parseSignatures sets the Ignore*CheckSignatures regex from the string slices.
 func (c *Config) parseSignatures() {
 	if c.ignoreChecksSignatures == nil && len(c.IgnoreChecksSignaturesSlice) > 0 {
+		if len(c.IgnoreChecksSignaturesSlice) == 1 && c.IgnoreChecksSignaturesSlice[0] == "" {
+			return
+		}
+
 		c.ignoreChecksSignatures = createRegex(c.IgnoreChecksSignaturesSlice)
 	}
 }
@@ -130,24 +113,6 @@ func parseChecks(checksSlice []string) []Check {
 	}
 
 	return checks
-}
-
-func parseSignatures(sigFlag string) *regexp.Regexp {
-	if sigFlag == "" {
-		return nil
-	}
-
-	sigs := []string{}
-	for _, sig := range strings.Split(sigFlag, ",") {
-		sig = strings.TrimSpace(sig)
-		if sig == "" {
-			continue
-		}
-
-		sigs = append(sigs, sig)
-	}
-
-	return createRegex(sigs)
 }
 
 func createRegex(sigs []string) *regexp.Regexp {

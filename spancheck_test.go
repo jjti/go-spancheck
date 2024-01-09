@@ -12,7 +12,7 @@ func Test(t *testing.T) {
 	t.Parallel()
 
 	for dir, config := range map[string]*spancheck.Config{
-		"base": spancheck.NewConfigFromFlags(),
+		"base": spancheck.NewDefaultConfig(),
 		"disableerrorchecks": {
 			EnabledChecks: []string{
 				spancheck.EndCheck.String(),
