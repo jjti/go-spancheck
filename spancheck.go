@@ -22,6 +22,15 @@ var doc string
 
 const stackLen = 32
 
+// spanType differentiates span types.
+type spanType int
+
+const (
+	spanUnset         spanType = iota // not a span
+	spanOpenTelemetry                 // from go.opentelemetry.io/otel
+	spanOpenCensus                    // from go.opencensus.io/trace
+)
+
 var (
 	// this approach stolen from errcheck
 	// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
@@ -66,9 +75,10 @@ func run(config *Config) func(*analysis.Pass) (interface{}, error) {
 }
 
 type spanVar struct {
-	stmt ast.Node
-	id   *ast.Ident
-	vr   *types.Var
+	stmt     ast.Node
+	id       *ast.Ident
+	vr       *types.Var
+	spanType spanType
 }
 
 // runFunc checks if the node is a function, has a span, and the span never has SetStatus set.
@@ -106,7 +116,8 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		//   ctx, span     := otel.Tracer("app").Start(...)
 		//   ctx, span     = otel.Tracer("app").Start(...)
 		//   var ctx, span = otel.Tracer("app").Start(...)
-		if !isTracerStart(pass.TypesInfo, n) || !isCall(stack[len(stack)-2]) {
+		sType, sStart := isSpanStart(pass.TypesInfo, n)
+		if !sStart || !isCall(stack[len(stack)-2]) {
 			return true
 		}
 
@@ -124,16 +135,18 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 			// do not analyze it.
 			if funcScope.Contains(v.Pos()) {
 				spanVars[id] = spanVar{
-					vr:   v,
-					stmt: stmt,
-					id:   id,
+					vr:       v,
+					stmt:     stmt,
+					id:       id,
+					spanType: sType,
 				}
 			}
 		} else if v, ok := pass.TypesInfo.Defs[id].(*types.Var); ok {
 			spanVars[id] = spanVar{
-				vr:   v,
-				stmt: stmt,
-				id:   id,
+				vr:       v,
+				stmt:     stmt,
+				id:       id,
+				spanType: sType,
 			}
 		}
 
@@ -178,7 +191,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 			}
 		}
 
-		if config.recordErrorEnabled {
+		if config.recordErrorEnabled && sv.spanType == spanOpenTelemetry { // RecordError only exists in OpenTelemetry
 			// Check if there's no RecordError to the span setting an error.
 			if ret := missingSpanCalls(pass, g, sv, "RecordError", returnsErr, config.ignoreChecksSignatures); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
@@ -188,19 +201,26 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	}
 }
 
-// isTracerStart reports whether n is tracer.Start()
-func isTracerStart(info *types.Info, n ast.Node) bool {
+// isSpanStart reports whether n is tracer.Start()
+func isSpanStart(info *types.Info, n ast.Node) (spanType, bool) {
 	sel, ok := n.(*ast.SelectorExpr)
 	if !ok {
-		return false
+		return spanUnset, false
 	}
 
-	if sel.Sel.Name != "Start" {
-		return false
+	switch sel.Sel.Name {
+	case "Start": // https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523
+		obj, ok := info.Uses[sel.Sel]
+		return spanOpenTelemetry, ok && obj.Pkg().Path() == "go.opentelemetry.io/otel/trace"
+	case "StartSpan": // https://pkg.go.dev/go.opencensus.io/trace#StartSpan
+		obj, ok := info.Uses[sel.Sel]
+		return spanOpenCensus, ok && obj.Pkg().Path() == "go.opencensus.io/trace"
+	case "StartSpanWithRemoteParent": // https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66
+		obj, ok := info.Uses[sel.Sel]
+		return spanOpenCensus, ok && obj.Pkg().Path() == "go.opencensus.io/trace"
+	default:
+		return spanUnset, false
 	}
-
-	obj, ok := info.Uses[sel.Sel]
-	return ok && obj.Pkg().Path() == "go.opentelemetry.io/otel/trace"
 }
 
 func isCall(n ast.Node) bool {
@@ -259,7 +279,8 @@ func missingSpanCalls(
 				stack = append(stack, n) // push
 
 				// Check whether the span was assigned over top of its old value.
-				if isTracerStart(pass.TypesInfo, n) {
+				_, spanStart := isSpanStart(pass.TypesInfo, n)
+				if spanStart {
 					if id := getID(stack[len(stack)-3]); id != nil && id.Obj.Decl == sv.id.Obj.Decl {
 						reAssigned = true
 						return false

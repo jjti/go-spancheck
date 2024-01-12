@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opencensus.io/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -38,6 +39,16 @@ func _() {
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	fmt.Print(span)
 	defer span.End()
+} // want "return can be reached without calling span.End"
+
+func _() {
+	_, span := trace.StartSpan(context.Background(), "foo") // want "span.End is not called on all paths, possible memory leak"
+	fmt.Print(span)
+} // want "return can be reached without calling span.End"
+
+func _() {
+	_, span := trace.StartSpanWithRemoteParent(context.Background(), "foo", trace.SpanContext{}) // want "span.End is not called on all paths, possible memory leak"
+	fmt.Print(span)
 } // want "return can be reached without calling span.End"
 
 // correct
@@ -110,4 +121,14 @@ func _() (string, error) {
 	}
 
 	return "", nil
+}
+
+func _() {
+	_, span := trace.StartSpan(context.Background(), "foo")
+	defer span.End()
+}
+
+func _() {
+	_, span := trace.StartSpanWithRemoteParent(context.Background(), "foo", trace.SpanContext{})
+	defer span.End()
 }

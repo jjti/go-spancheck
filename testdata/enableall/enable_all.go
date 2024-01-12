@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opencensus.io/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -142,6 +143,18 @@ func _() error {
 	return nil
 }
 
+func _() error {
+	_, span := trace.StartSpan(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer span.End()
+
+	if true {
+		err := errors.New("foo")
+		return err // want "return can be reached without calling span.SetStatus"
+	}
+
+	return nil
+}
+
 // correct
 
 func _() error {
@@ -188,8 +201,4 @@ func _() {
 
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	defer span.End()
-}
-
-func _() {
-	// TODO: https://andydote.co.uk/2023/09/19/tracing-is-better/
 }

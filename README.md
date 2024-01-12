@@ -5,7 +5,10 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/jjti/go-spancheck)](https://goreportcard.com/report/github.com/jjti/go-spancheck)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
-Checks usage of [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentation/go/manual/) from [go.opentelemetry.io/otel/trace](go.opentelemetry.io/otel/trace).
+Checks usage of:
+
+- [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentation/go/manual/) from [go.opentelemetry.io/otel/trace](go.opentelemetry.io/otel/trace)
+- [OpenCensus spans](https://opencensus.io/quickstart/go/tracing/) from [go.opencensus.io/trace](https://pkg.go.dev/go.opencensus.io/trace#Span)
 
 ## Installation & Usage
 
@@ -194,6 +197,8 @@ func _() error {
 ```
 
 OpenTelemetry docs: [Record errors](https://opentelemetry.io/docs/instrumentation/go/manual/#record-errors).
+
+Note: this check is not applied to [OpenCensus spans](https://pkg.go.dev/go.opencensus.io/trace#SpanInterface) because they have no `RecordError` method.
 
 ## Attribution
 
