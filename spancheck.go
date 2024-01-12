@@ -41,7 +41,7 @@ func newAnalyzer(config *Config) *analysis.Analyzer {
 
 	return &analysis.Analyzer{
 		Name:  "spancheck",
-		Doc:   "checks for mistakes with OpenTelemetry/Census spans",
+		Doc:   "Checks for mistakes with OpenTelemetry/Census spans.",
 		Flags: config.fs,
 		Run:   run(config),
 		Requires: []*analysis.Analyzer{
