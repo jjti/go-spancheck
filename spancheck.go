@@ -1,14 +1,10 @@
 package spancheck
 
 import (
-	_ "embed"
 	"go/ast"
-	"go/parser"
-	"go/token"
 	"go/types"
 	"log"
 	"regexp"
-	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/ctrlflow"
@@ -16,9 +12,6 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/cfg"
 )
-
-//go:embed doc.go
-var doc string
 
 const stackLen = 32
 
@@ -48,7 +41,7 @@ func newAnalyzer(config *Config) *analysis.Analyzer {
 
 	return &analysis.Analyzer{
 		Name:  "spancheck",
-		Doc:   extractDoc(doc, "spancheck"),
+		Doc:   "checks for mistakes with OpenTelemetry/Census spans",
 		Flags: config.fs,
 		Run:   run(config),
 		Requires: []*analysis.Analyzer{
@@ -435,41 +428,4 @@ func errorsByArg(pass *analysis.Pass, call *ast.CallExpr) []bool {
 
 func isErrorType(t types.Type) bool {
 	return types.Implements(t, errorType)
-}
-
-// extractDoc extracts the doc comment for the analyzer with the given name.
-// copied out of the internal go util: https://github.com/golang/tools/blob/master/internal/analysisinternal/extractdoc.go
-func extractDoc(content, name string) string {
-	if content == "" {
-		log.Default().Print("[WARN] empty content")
-		return ""
-	}
-
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "", content, parser.ParseComments|parser.PackageClauseOnly)
-	if err != nil {
-		log.Default().Print("[WARN] failed to parse doc.go", err)
-		return ""
-	}
-
-	if f.Doc == nil {
-		log.Default().Print("[WARN] no package doc comment")
-		return ""
-	}
-
-	for _, section := range strings.Split(f.Doc.Text(), "\n# ") {
-		if body := strings.TrimPrefix(section, "Analyzer "+name); body != section &&
-			body != "" &&
-			body[0] == '\r' || body[0] == '\n' {
-			body = strings.TrimSpace(body)
-			rest := strings.TrimPrefix(body, name+":")
-			if rest == body {
-				log.Default().Print("[ERROR] package doc comment contains no '" + name + "' heading")
-			}
-			return strings.TrimSpace(rest)
-		}
-	}
-
-	log.Default().Print("[ERROR] package doc comment contains no 'Analyzer " + name + "' heading")
-	return ""
 }
