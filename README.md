@@ -10,13 +10,6 @@ Checks usage of:
 - [OpenTelemetry spans](https://opentelemetry.io/docs/instrumentation/go/manual/) from [go.opentelemetry.io/otel/trace](go.opentelemetry.io/otel/trace)
 - [OpenCensus spans](https://opencensus.io/quickstart/go/tracing/) from [go.opencensus.io/trace](https://pkg.go.dev/go.opencensus.io/trace#Span)
 
-## Installation & Usage
-
-```bash
-go install github.com/jjti/go-spancheck/cmd/spancheck@latest
-spancheck ./...
-```
-
 ## Example
 
 ```bash
@@ -73,6 +66,13 @@ linters-settings:
 ```
 
 ### CLI
+
+To install the linter as a CLI:
+
+```bash
+go install github.com/jjti/go-spancheck/cmd/spancheck@latest
+spancheck ./...
+```
 
 Only the `span.End()` check is enabled by default. The others can be enabled with `-checks 'end,set-status,record-error'`.
 
