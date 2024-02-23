@@ -132,3 +132,22 @@ func _() {
 	_, span := trace.StartSpanWithRemoteParent(context.Background(), "foo", trace.SpanContext{})
 	defer span.End()
 }
+
+// This tests that we detect when the span is closed within a deferred func.
+// https://github.com/jjti/go-spancheck/issues/12
+func _() {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer func() {
+		span.End()
+	}()
+}
+
+// Despite above, we do not wander more than one level deep into the defer stack.
+func _() {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
+	defer func() {
+		defer func() {
+			span.End()
+		}()
+	}()
+} // want "return can be reached without calling span.End"
