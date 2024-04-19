@@ -23,11 +23,15 @@ const (
 	spanOpenCensus                    // from go.opencensus.io/trace
 )
 
-var (
-	// this approach stolen from errcheck
-	// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
-	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
-)
+// SpanTypes is a list of all span types by name.
+var SpanTypes = map[string]spanType{
+	"opentelemetry": spanOpenTelemetry,
+	"opencensus":    spanOpenCensus,
+}
+
+// this approach stolen from errcheck
+// https://github.com/kisielk/errcheck/blob/7f94c385d0116ccc421fbb4709e4a484d98325ee/errcheck/errcheck.go#L22
+var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 
 // NewAnalyzerWithConfig returns a new analyzer configured with the Config passed in.
 // Its config can be set for testing.
@@ -108,7 +112,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		//   ctx, span     := otel.Tracer("app").Start(...)
 		//   ctx, span     = otel.Tracer("app").Start(...)
 		//   var ctx, span = otel.Tracer("app").Start(...)
-		sType, sStart := isSpanStart(pass.TypesInfo, n)
+		sType, sStart := isSpanStart(pass.TypesInfo, n, config.startSpanMatchers)
 		if !sStart || !isCall(stack[len(stack)-2]) {
 			return true
 		}
@@ -169,7 +173,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	for _, sv := range spanVars {
 		if config.endCheckEnabled {
 			// Check if there's no End to the span.
-			if ret := getMissingSpanCalls(pass, g, sv, "End", func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }, nil); ret != nil {
+			if ret := getMissingSpanCalls(pass, g, sv, "End", func(_ *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }, nil, config.startSpanMatchers); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.End", sv.vr.Name())
 			}
@@ -177,7 +181,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.setStatusEnabled {
 			// Check if there's no SetStatus to the span setting an error.
-			if ret := getMissingSpanCalls(pass, g, sv, "SetStatus", getErrorReturn, config.ignoreChecksSignatures); ret != nil {
+			if ret := getMissingSpanCalls(pass, g, sv, "SetStatus", getErrorReturn, config.ignoreChecksSignatures, config.startSpanMatchers); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.SetStatus is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.SetStatus", sv.vr.Name())
 			}
@@ -185,7 +189,7 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 
 		if config.recordErrorEnabled && sv.spanType == spanOpenTelemetry { // RecordError only exists in OpenTelemetry
 			// Check if there's no RecordError to the span setting an error.
-			if ret := getMissingSpanCalls(pass, g, sv, "RecordError", getErrorReturn, config.ignoreChecksSignatures); ret != nil {
+			if ret := getMissingSpanCalls(pass, g, sv, "RecordError", getErrorReturn, config.ignoreChecksSignatures, config.startSpanMatchers); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.RecordError is not called on all paths", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.RecordError", sv.vr.Name())
 			}
@@ -194,25 +198,22 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 }
 
 // isSpanStart reports whether n is tracer.Start()
-func isSpanStart(info *types.Info, n ast.Node) (spanType, bool) {
+func isSpanStart(info *types.Info, n ast.Node, startSpanMatchers []spanStartMatcher) (spanType, bool) {
 	sel, ok := n.(*ast.SelectorExpr)
 	if !ok {
 		return spanUnset, false
 	}
 
-	switch sel.Sel.Name {
-	case "Start": // https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523
-		obj, ok := info.Uses[sel.Sel]
-		return spanOpenTelemetry, ok && obj.Pkg().Path() == "go.opentelemetry.io/otel/trace"
-	case "StartSpan": // https://pkg.go.dev/go.opencensus.io/trace#StartSpan
-		obj, ok := info.Uses[sel.Sel]
-		return spanOpenCensus, ok && obj.Pkg().Path() == "go.opencensus.io/trace"
-	case "StartSpanWithRemoteParent": // https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66
-		obj, ok := info.Uses[sel.Sel]
-		return spanOpenCensus, ok && obj.Pkg().Path() == "go.opencensus.io/trace"
-	default:
-		return spanUnset, false
+	fnSig := info.ObjectOf(sel.Sel).String()
+
+	// Check if the function is a span start function
+	for _, matcher := range startSpanMatchers {
+		if matcher.signature.MatchString(fnSig) {
+			return matcher.spanType, true
+		}
 	}
+
+	return spanUnset, false
 }
 
 func isCall(n ast.Node) bool {
@@ -244,13 +245,14 @@ func getMissingSpanCalls(
 	selName string,
 	checkErr func(pass *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt,
 	ignoreCheckSig *regexp.Regexp,
+	spanStartMatchers []spanStartMatcher,
 ) *ast.ReturnStmt {
 	// blockUses computes "uses" for each block, caching the result.
 	memo := make(map[*cfg.Block]bool)
 	blockUses := func(pass *analysis.Pass, b *cfg.Block) bool {
 		res, ok := memo[b]
 		if !ok {
-			res = usesCall(pass, b.Nodes, sv, selName, ignoreCheckSig, 0)
+			res = usesCall(pass, b.Nodes, sv, selName, ignoreCheckSig, spanStartMatchers, 0)
 			memo[b] = res
 		}
 		return res
@@ -272,7 +274,7 @@ outer:
 	}
 
 	// Is the call "used" in the remainder of its defining block?
-	if usesCall(pass, rest, sv, selName, ignoreCheckSig, 0) {
+	if usesCall(pass, rest, sv, selName, ignoreCheckSig, spanStartMatchers, 0) {
 		return nil
 	}
 
@@ -314,7 +316,7 @@ outer:
 }
 
 // usesCall reports whether stmts contain a use of the selName call on variable v.
-func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string, ignoreCheckSig *regexp.Regexp, depth int) bool {
+func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string, ignoreCheckSig *regexp.Regexp, startSpanMatchers []spanStartMatcher, depth int) bool {
 	if depth > 1 { // for perf reasons, do not dive too deep thru func literals, just one level deep check.
 		return false
 	}
@@ -329,7 +331,7 @@ func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string,
 					cfgs := pass.ResultOf[ctrlflow.Analyzer].(*ctrlflow.CFGs)
 					g := cfgs.FuncLit(n)
 					if g != nil && len(g.Blocks) > 0 {
-						return usesCall(pass, g.Blocks[0].Nodes, sv, selName, ignoreCheckSig, depth+1)
+						return usesCall(pass, g.Blocks[0].Nodes, sv, selName, ignoreCheckSig, startSpanMatchers, depth+1)
 					}
 
 					return false
@@ -352,7 +354,7 @@ func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string,
 			stack = append(stack, n) // push
 
 			// Check whether the span was assigned over top of its old value.
-			_, spanStart := isSpanStart(pass.TypesInfo, n)
+			_, spanStart := isSpanStart(pass.TypesInfo, n, startSpanMatchers)
 			if spanStart {
 				if id := getID(stack[len(stack)-3]); id != nil && id.Obj.Decl == sv.id.Obj.Decl {
 					reAssigned = true
