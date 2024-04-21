@@ -148,7 +148,8 @@ func (c *Config) parseStartSpanSignatures() {
 				validSpanTypes = append(validSpanTypes, k)
 			}
 
-			log.Default().Printf("[WARN] invalid start span type \"%s\". expected one of %s\n", sigType, strings.Join(validSpanTypes, ", "))
+			log.Default().
+				Printf("[WARN] invalid start span type \"%s\". expected one of %s\n", sigType, strings.Join(validSpanTypes, ", "))
 
 			continue
 		}
@@ -166,7 +167,7 @@ func (c *Config) parseStartSpanSignatures() {
 		})
 
 		if i >= len(defaultStartSpanSignatures) {
-			cols := strings.Split(sig, ".")
+			cols := strings.Split(sig, ":")
 			customMatchers = append(customMatchers, cols[len(cols)-1])
 		}
 	}

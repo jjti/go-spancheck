@@ -88,9 +88,10 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		funcScope = pass.TypesInfo.Scopes[v.Type]
 	case *ast.FuncDecl:
 		funcScope = pass.TypesInfo.Scopes[v.Type]
+		fnSig := pass.TypesInfo.ObjectOf(v.Name).String()
 
 		// Skip checking spans in this function if it's a custom starter/creator.
-		if config.startSpanMatchersCustomRegex != nil && config.startSpanMatchersCustomRegex.MatchString(v.Name.Name) {
+		if config.startSpanMatchersCustomRegex != nil && config.startSpanMatchersCustomRegex.MatchString(fnSig) {
 			return
 		}
 	}
@@ -330,7 +331,15 @@ outer:
 }
 
 // usesCall reports whether stmts contain a use of the selName call on variable v.
-func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string, ignoreCheckSig *regexp.Regexp, startSpanMatchers []spanStartMatcher, depth int) bool {
+func usesCall(
+	pass *analysis.Pass,
+	stmts []ast.Node,
+	sv spanVar,
+	selName string,
+	ignoreCheckSig *regexp.Regexp,
+	startSpanMatchers []spanStartMatcher,
+	depth int,
+) bool {
 	if depth > 1 { // for perf reasons, do not dive too deep thru func literals, just one level deep check.
 		return false
 	}
