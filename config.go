@@ -167,8 +167,7 @@ func (c *Config) parseStartSpanSignatures() {
 		})
 
 		if i >= len(defaultStartSpanSignatures) {
-			cols := strings.Split(sig, ":")
-			customMatchers = append(customMatchers, cols[len(cols)-1])
+			customMatchers = append(customMatchers, sig)
 		}
 	}
 
