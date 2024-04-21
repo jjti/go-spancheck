@@ -135,6 +135,11 @@ func (c *Config) parseStartSpanSignatures() {
 		}
 
 		sig, sigType := parts[0], parts[1]
+		if len(sig) < 1 {
+			log.Default().Print("[WARN] invalid start span signature, empty pattern")
+
+			continue
+		}
 
 		spanType, ok := SpanTypes[sigType]
 		if !ok {
@@ -161,20 +166,12 @@ func (c *Config) parseStartSpanSignatures() {
 		})
 
 		if i >= len(defaultStartSpanSignatures) {
-			customMatchers = append(customMatchers, sig)
+			cols := strings.Split(sig, ".")
+			customMatchers = append(customMatchers, cols[len(cols)-1])
 		}
 	}
 
-	if len(customMatchers) == 0 {
-		return
-	}
-
-	customStartRegex, err := regexp.Compile(fmt.Sprintf("(%s)", strings.Join(customMatchers, "|")))
-	if err != nil {
-		log.Default().Printf("[WARN] failed to compile regex from combo of customer start signatures %v: %v\n", customMatchers, err)
-	} else {
-		c.startSpanMatchersCustomRegex = customStartRegex
-	}
+	c.startSpanMatchersCustomRegex = createRegex(customMatchers)
 }
 
 func parseChecks(checksSlice []string) []Check {

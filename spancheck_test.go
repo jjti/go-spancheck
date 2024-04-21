@@ -35,7 +35,7 @@ func Test(t *testing.T) {
 			}
 			cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice,
 				"util.TestStartTrace:opentelemetry",
-				"testStartTrace:opencensus",
+				"enableall.testStartTrace:opencensus",
 			)
 
 			return cfg
