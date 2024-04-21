@@ -263,3 +263,6 @@ This linter is the product of liberal copying of:
 - [github.com/tomarrell/wrapcheck](https://github.com/tomarrell/wrapcheck) (error type checking and config)
 - [github.com/Antonboom/testifylint](https://github.com/Antonboom/testifylint) (README)
 - [github.com/ghostiam/protogetter](https://github.com/ghostiam/protogetter/blob/main/testdata/Makefile) (test setup)
+
+And the contributions of:
+- [@trixnz](https://github.com/trixnz) who [added support for custom span start functions](https://github.com/jjti/go-spancheck/pull/16)
