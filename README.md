@@ -89,6 +89,8 @@ $ spancheck -h
 Flags:
   -checks string
         comma-separated list of checks to enable (options: end, set-status, record-error) (default "end")
+  -extra-start-span-signatures string
+        comma-separated list of regex:telemetry-type for function signatures that indicate the start of a span
   -ignore-check-signatures string
         comma-separated list of regex for function signatures that disable checks on errors
 ```
