@@ -88,6 +88,11 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		funcScope = pass.TypesInfo.Scopes[v.Type]
 	case *ast.FuncDecl:
 		funcScope = pass.TypesInfo.Scopes[v.Type]
+
+		// Skip checking spans in this function if it's a custom starter/creator.
+		if config.startSpanMatchersCustomRegex != nil && config.startSpanMatchersCustomRegex.MatchString(v.Name.Name) {
+			return
+		}
 	}
 
 	// Maps each span variable to its defining ValueSpec/AssignStmt.
@@ -112,8 +117,12 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 		//   ctx, span     := otel.Tracer("app").Start(...)
 		//   ctx, span     = otel.Tracer("app").Start(...)
 		//   var ctx, span = otel.Tracer("app").Start(...)
-		sType, sStart := isSpanStart(pass.TypesInfo, n, config.startSpanMatchers)
-		if !sStart || !isCall(stack[len(stack)-2]) {
+		sType, isStart := isSpanStart(pass.TypesInfo, n, config.startSpanMatchers)
+		if !isStart {
+			return true
+		}
+
+		if !isCall(stack[len(stack)-2]) {
 			return true
 		}
 
@@ -213,7 +222,7 @@ func isSpanStart(info *types.Info, n ast.Node, startSpanMatchers []spanStartMatc
 		}
 	}
 
-	return spanUnset, false
+	return 0, false
 }
 
 func isCall(n ast.Node) bool {
@@ -226,10 +235,15 @@ func getID(node ast.Node) *ast.Ident {
 	case *ast.ValueSpec:
 		if len(stmt.Names) > 1 {
 			return stmt.Names[1]
+		} else if len(stmt.Names) == 1 {
+			return stmt.Names[0]
 		}
 	case *ast.AssignStmt:
 		if len(stmt.Lhs) > 1 {
 			id, _ := stmt.Lhs[1].(*ast.Ident)
+			return id
+		} else if len(stmt.Lhs) == 1 {
+			id, _ := stmt.Lhs[0].(*ast.Ident)
 			return id
 		}
 	}
@@ -354,8 +368,8 @@ func usesCall(pass *analysis.Pass, stmts []ast.Node, sv spanVar, selName string,
 			stack = append(stack, n) // push
 
 			// Check whether the span was assigned over top of its old value.
-			_, spanStart := isSpanStart(pass.TypesInfo, n, startSpanMatchers)
-			if spanStart {
+			_, isStart := isSpanStart(pass.TypesInfo, n, startSpanMatchers)
+			if isStart {
 				if id := getID(stack[len(stack)-3]); id != nil && id.Obj.Decl == sv.id.Obj.Decl {
 					reAssigned = true
 					return false

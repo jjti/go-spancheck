@@ -22,14 +22,17 @@ const (
 	RecordErrorCheck
 )
 
-var DefaultStartSpanSignatures = []string{
-	// https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523
-	`(\(go.opentelemetry.io/otel/trace.Tracer\).Start):opentelemetry`,
-	// https://pkg.go.dev/go.opencensus.io/trace#StartSpan
-	`(go.opencensus.io/trace.StartSpan):opencensus`,
-	// https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66
-	`(go.opencensus.io/trace.StartSpanWithRemoteParent):opencensus`,
-}
+var (
+	startSpanSignatureCols     = 2
+	defaultStartSpanSignatures = []string{
+		// https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523
+		`\(go.opentelemetry.io/otel/trace.Tracer\).Start:opentelemetry`,
+		// https://pkg.go.dev/go.opencensus.io/trace#StartSpan
+		`go.opencensus.io/trace.StartSpan:opencensus`,
+		// https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66
+		`go.opencensus.io/trace.StartSpanWithRemoteParent:opencensus`,
+	}
+)
 
 func (c Check) String() string {
 	switch c {
@@ -77,14 +80,15 @@ type Config struct {
 	// SetStatus and RecordError checks on error.
 	ignoreChecksSignatures *regexp.Regexp
 
-	startSpanMatchers []spanStartMatcher
+	startSpanMatchers            []spanStartMatcher
+	startSpanMatchersCustomRegex *regexp.Regexp
 }
 
 // NewDefaultConfig returns a new Config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
 		EnabledChecks:          []string{EndCheck.String()},
-		StartSpanMatchersSlice: DefaultStartSpanSignatures,
+		StartSpanMatchersSlice: defaultStartSpanSignatures,
 	}
 }
 
@@ -119,11 +123,12 @@ func (c *Config) parseStartSpanSignatures() {
 		return
 	}
 
-	for _, sig := range c.StartSpanMatchersSlice {
+	customMatchers := []string{}
+	for i, sig := range c.StartSpanMatchersSlice {
 		parts := strings.Split(sig, ":")
 
-		//nolint:gomnd // Make sure we have both a signature and a telemetry type
-		if len(parts) != 2 {
+		// Make sure we have both a signature and a telemetry type
+		if len(parts) != startSpanSignatureCols {
 			log.Default().Printf("[WARN] invalid start span signature \"%s\". expected regex:telemetry-type\n", sig)
 
 			continue
@@ -138,7 +143,7 @@ func (c *Config) parseStartSpanSignatures() {
 				validSpanTypes = append(validSpanTypes, k)
 			}
 
-			log.Default().Printf("[WARN] invalid start span type \"%s\". expected one of %s", sigType, strings.Join(validSpanTypes, ", "))
+			log.Default().Printf("[WARN] invalid start span type \"%s\". expected one of %s\n", sigType, strings.Join(validSpanTypes, ", "))
 
 			continue
 		}
@@ -154,6 +159,21 @@ func (c *Config) parseStartSpanSignatures() {
 			signature: regex,
 			spanType:  spanType,
 		})
+
+		if i >= len(defaultStartSpanSignatures) {
+			customMatchers = append(customMatchers, sig)
+		}
+	}
+
+	if len(customMatchers) == 0 {
+		return
+	}
+
+	customStartRegex, err := regexp.Compile(fmt.Sprintf("(%s)", strings.Join(customMatchers, "|")))
+	if err != nil {
+		log.Default().Printf("[WARN] failed to compile regex from combo of customer start signatures %v: %v\n", customMatchers, err)
+	} else {
+		c.startSpanMatchersCustomRegex = customStartRegex
 	}
 }
 

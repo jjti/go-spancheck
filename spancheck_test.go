@@ -33,6 +33,10 @@ func Test(t *testing.T) {
 				spancheck.RecordErrorCheck.String(),
 				spancheck.SetStatusCheck.String(),
 			}
+			cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice,
+				"util.TestStartTrace:opentelemetry",
+				"testStartTrace:opencensus",
+			)
 
 			return cfg
 		},
