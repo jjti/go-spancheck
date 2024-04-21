@@ -63,6 +63,15 @@ linters-settings:
     # Default: []
     ignore-check-signatures:
       - "telemetry.RecordError"
+    # A list of regexes for additional function signatures that should be considered when
+    # evaluating if a function is creating a span. This is useful if you have created utility
+    # methods to create spans, instead of calling the library's `StartSpan` function directly.
+    #
+    # Each entry should be of the form <regex>:<telemetry-type>, where `telemetry-type` can be `opentelemetry` or `opencensus`.
+    # https://github.com/jjti/go-spancheck#extra-start-span-signatures
+    # Default: []
+    extra-start-span-signatures:
+      - "github.com/user/repo/telemetry/trace.Start:opentelemetry"
 ```
 
 ### CLI
@@ -121,6 +130,21 @@ The warnings are can be ignored by setting `-ignore-check-signatures` flag to `r
 
 ```bash
 spancheck -checks 'end,set-status,record-error' -ignore-check-signatures 'recordErr' ./...
+```
+
+### Extra Start Span Signatures
+
+By default, Span creation will be tracked from direct calls to [(go.opentelemetry.io/otel/trace.Tracer).Start](https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523), [go.opencensus.io/trace.StartSpan](https://pkg.go.dev/go.opencensus.io/trace#StartSpan), and [go.opencensus.io/trace.StartSpanWithRemoteParent](https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66). If you have created a utility function to call these, then only your function will be analyzed. In addition, this function will be flagged as not calling `span.End()`, as it effectively leaks the span.
+
+For these functions, you can use the `-extra-start-span-signatures` argument to indicate that these functions are creating spans.
+
+You must pass a comma-separated list of regex patterns, and the telemetry library the function is returning a span for.
+Each entry should be of the form `<regex>:<telemetry-type>`, where `telemetry-type` can be `opentelemetry` or `opencensus`.
+
+For example, if you have created a function named `Start` under the `telemetry/trace` package, using the `go.opentelemetry.io/otel` library, you can include this function for analysis like so:
+
+```bash
+spancheck -extra-start-span-signatures 'github.com/user/repo/telemetry/trace.Start:opentelemetry' ./...
 ```
 
 ## Problem Statement
