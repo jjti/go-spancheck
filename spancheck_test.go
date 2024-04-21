@@ -11,27 +11,39 @@ import (
 func Test(t *testing.T) {
 	t.Parallel()
 
-	for dir, config := range map[string]*spancheck.Config{
-		"base": spancheck.NewDefaultConfig(),
-		"disableerrorchecks": {
-			EnabledChecks: []string{
+	type configFactory func() *spancheck.Config
+
+	for dir, configFactory := range map[string]configFactory{
+		"base": spancheck.NewDefaultConfig,
+		"disableerrorchecks": func() *spancheck.Config {
+			cfg := spancheck.NewDefaultConfig()
+			cfg.EnabledChecks = []string{
 				spancheck.EndCheck.String(),
 				spancheck.RecordErrorCheck.String(),
 				spancheck.SetStatusCheck.String(),
-			},
-			IgnoreChecksSignaturesSlice: []string{"telemetry.Record", "recordErr"},
+			}
+			cfg.IgnoreChecksSignaturesSlice = []string{"telemetry.Record", "recordErr"}
+
+			return cfg
 		},
-		"enableall": {
-			EnabledChecks: []string{
+		"enableall": func() *spancheck.Config {
+			cfg := spancheck.NewDefaultConfig()
+			cfg.EnabledChecks = []string{
 				spancheck.EndCheck.String(),
 				spancheck.RecordErrorCheck.String(),
 				spancheck.SetStatusCheck.String(),
-			},
+			}
+			cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice,
+				"util.TestStartTrace:opentelemetry",
+				"enableall.testStartTrace:opencensus",
+			)
+
+			return cfg
 		},
 	} {
 		dir := dir
 		t.Run(dir, func(t *testing.T) {
-			analysistest.Run(t, "testdata/"+dir, spancheck.NewAnalyzerWithConfig(config))
+			analysistest.Run(t, "testdata/"+dir, spancheck.NewAnalyzerWithConfig(configFactory()))
 		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jjti/go-spancheck/testdata/enableall/util"
 	"go.opencensus.io/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -155,6 +156,11 @@ func _() error {
 	return nil
 }
 
+func _() {
+	span := util.TestStartTrace() // want "span.End is not called on all paths, possible memory leak"
+	fmt.Print(span)
+} // want "return can be reached without calling span.End"
+
 // correct
 
 func _() error {
@@ -201,4 +207,9 @@ func _() {
 
 	_, span = otel.Tracer("foo").Start(context.Background(), "bar")
 	defer span.End()
+}
+
+func testStartTrace() *trace.Span { // no error expected because this is in extra start types
+	_, span := trace.StartSpan(context.Background(), "bar")
+	return span
 }

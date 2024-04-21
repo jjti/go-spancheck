@@ -63,6 +63,13 @@ linters-settings:
     # Default: []
     ignore-check-signatures:
       - "telemetry.RecordError"
+    # A list of regexes for additional function signatures that create spans. This is useful if you have a utility
+    # method to create spans. Each entry should be of the form <regex>:<telemetry-type>, where `telemetry-type`
+    # can be `opentelemetry` or `opencensus`.
+    # https://github.com/jjti/go-spancheck#extra-start-span-signatures
+    # Default: []
+    extra-start-span-signatures:
+      - "github.com/user/repo/telemetry/trace.Start:opentelemetry"
 ```
 
 ### CLI
@@ -121,6 +128,21 @@ The warnings are can be ignored by setting `-ignore-check-signatures` flag to `r
 
 ```bash
 spancheck -checks 'end,set-status,record-error' -ignore-check-signatures 'recordErr' ./...
+```
+
+### Extra Start Span Signatures
+
+By default, Span creation will be tracked from calls to [(go.opentelemetry.io/otel/trace.Tracer).Start](https://github.com/open-telemetry/opentelemetry-go/blob/98b32a6c3a87fbee5d34c063b9096f416b250897/trace/trace.go#L523), [go.opencensus.io/trace.StartSpan](https://pkg.go.dev/go.opencensus.io/trace#StartSpan), or [go.opencensus.io/trace.StartSpanWithRemoteParent](https://github.com/census-instrumentation/opencensus-go/blob/v0.24.0/trace/trace_api.go#L66).
+
+You can use the `-extra-start-span-signatures` flag to list additional Span creation functions. For all such functions:
+
+1. their Spans will be linted (for all enable checks)
+1. checks will be disabled (i.e. there is no linting of Spans within the creation functions)
+
+You must pass a comma-separated list of regex patterns and the telemetry library corresponding to the returned Span. Each entry should be of the form `<regex>:<telemetry-type>`, where `telemetry-type` can be `opentelemetry` or `opencensus`. For example, if you have created a function named `StartTrace` in a `telemetry` package, using the `go.opentelemetry.io/otel` library, you can include this function for analysis like so:
+
+```bash
+spancheck -extra-start-span-signatures 'github.com/user/repo/telemetry/StartTrace:opentelemetry' ./...
 ```
 
 ## Problem Statement
