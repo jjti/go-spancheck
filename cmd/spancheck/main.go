@@ -33,7 +33,9 @@ func main() {
 	cfg.EnabledChecks = strings.Split(checkStrings, ",")
 	cfg.IgnoreChecksSignaturesSlice = strings.Split(ignoreCheckSignatures, ",")
 
-	cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice, strings.Split(extraStartSpanSignatures, ",")...)
+	if extraStartSpanSignatures != "" {
+		cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice, strings.Split(extraStartSpanSignatures, ",")...)
+	}
 
 	singlechecker.Main(spancheck.NewAnalyzerWithConfig(cfg))
 }
