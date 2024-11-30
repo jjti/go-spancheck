@@ -213,3 +213,39 @@ func testStartTrace() *trace.Span { // no error expected because this is in extr
 	_, span := trace.StartSpan(context.Background(), "bar")
 	return span
 }
+
+// https://github.com/jjti/go-spancheck/issues/25
+func _() error {
+	if true {
+		_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+		span.End()
+	}
+
+	return errors.New("test")
+}
+
+func _() error {
+	if true {
+		_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+		defer span.End()
+
+		if true {
+			span.RecordError(errors.New("test"))
+			return errors.New("test") // want "return can be reached without calling span.SetStatus"
+		}
+	}
+
+	return errors.New("test")
+}
+
+// TODO: the check below now fails after the change to fix issue 25 above.
+// func _() error {
+// 	var span *trace.Span
+
+// 	if true {
+// 		_, span = trace.StartSpan(context.Background(), "foo")
+// 		defer span.End()
+// 	}
+
+// 	return errors.New("test")
+// }

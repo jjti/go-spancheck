@@ -309,6 +309,11 @@ outer:
 			}
 			seen[b] = true
 
+			// Skip successors that are not nested within this current block.
+			if _, ok := nestedBlockTypes[b.Kind]; !ok {
+				continue
+			}
+
 			// Prune the search if the block uses v.
 			if blockUses(pass, b) {
 				continue
@@ -328,6 +333,21 @@ outer:
 	}
 
 	return search(defBlock.Succs)
+}
+
+var nestedBlockTypes = map[cfg.BlockKind]struct{}{
+	cfg.KindBody:            {},
+	cfg.KindForBody:         {},
+	cfg.KindForLoop:         {},
+	cfg.KindIfElse:          {},
+	cfg.KindIfThen:          {},
+	cfg.KindLabel:           {},
+	cfg.KindRangeBody:       {},
+	cfg.KindRangeLoop:       {},
+	cfg.KindSelectCaseBody:  {},
+	cfg.KindSelectAfterCase: {},
+	cfg.KindSwitchCaseBody:  {},
+	cfg.KindSwitchNextCase:  {},
 }
 
 // usesCall reports whether stmts contain a use of the selName call on variable v.
