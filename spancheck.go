@@ -360,9 +360,11 @@ func usesCall(
 	startSpanMatchers []spanStartMatcher,
 	depth int,
 ) bool {
-	if depth > 1 { // for perf reasons, do not dive too deep thru func literals, just one level deep check.
+	if depth > 1 { // for perf reasons, do not dive too deep thru func literals, just two levels deep.
 		return false
 	}
+
+	cfgs := pass.ResultOf[ctrlflow.Analyzer].(*ctrlflow.CFGs)
 
 	found, reAssigned := false, false
 	for _, subStmt := range stmts {
@@ -371,7 +373,6 @@ func usesCall(
 			switch n := n.(type) {
 			case *ast.FuncLit:
 				if len(stack) > 0 {
-					cfgs := pass.ResultOf[ctrlflow.Analyzer].(*ctrlflow.CFGs)
 					g := cfgs.FuncLit(n)
 					if g != nil && len(g.Blocks) > 0 {
 						return usesCall(pass, g.Blocks[0].Nodes, sv, selName, ignoreCheckSig, startSpanMatchers, depth+1)
@@ -385,6 +386,32 @@ func usesCall(
 					if ignoreCheckSig != nil && ignoreCheckSig.MatchString(fnSig) {
 						found = true
 						return false
+					}
+				}
+			case *ast.DeferStmt:
+				if n.Call == nil {
+					break
+				}
+
+				f, ok := n.Call.Fun.(*ast.FuncLit)
+				if !ok {
+					break
+				}
+
+				if g := cfgs.FuncLit(f); g != nil && len(g.Blocks) > 0 {
+					for _, b := range g.Blocks {
+						if usesCall(
+							pass,
+							b.Nodes,
+							sv,
+							selName,
+							ignoreCheckSig,
+							startSpanMatchers,
+							depth+1,
+						) {
+							found = true
+							return false
+						}
 					}
 				}
 			case nil:

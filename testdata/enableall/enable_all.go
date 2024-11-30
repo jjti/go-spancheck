@@ -249,3 +249,41 @@ func _() error {
 
 // 	return errors.New("test")
 // }
+
+// https://github.com/jjti/go-spancheck/issues/24
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "test")
+		}
+
+		span.End()
+	}()
+
+	return errors.New("test")
+}
+
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	defer func() {
+		if true {
+			span.End()
+		}
+		span.RecordError(err)
+	}()
+
+	return errors.New("test") // want "return can be reached without calling span.SetStatus"
+}
+
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer func() {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "test")
+		span.End()
+	}()
+
+	return errors.New("test")
+}

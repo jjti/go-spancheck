@@ -56,3 +56,15 @@ func _() error {
 }
 
 func recordErr(span trace.Span, err error) {}
+
+// https://github.com/jjti/go-spancheck/issues/24
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar")
+	defer func() {
+		recordErr(span, err)
+
+		span.End()
+	}()
+
+	return errors.New("test")
+}
