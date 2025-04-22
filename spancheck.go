@@ -405,8 +405,7 @@ func usesCall(
 				}
 
 				if g := cfgs.FuncLit(f); g != nil && len(g.Blocks) > 0 {
-					switch selName {
-					case selNameEnd:
+					if selName == selNameEnd {
 						// Check if all returning blocks call end.
 						for _, b := range g.Blocks {
 							if b.Return() != nil && !usesCall(
@@ -424,20 +423,20 @@ func usesCall(
 
 						found = true
 						return false
-					case selNameSetStatus, selNameRecordError:
-						for _, b := range g.Blocks {
-							if usesCall(
-								pass,
-								b.Nodes,
-								sv,
-								selName,
-								ignoreCheckSig,
-								startSpanMatchers,
-								depth+1,
-							) {
-								found = true
-								return false
-							}
+					}
+
+					for _, b := range g.Blocks {
+						if usesCall(
+							pass,
+							b.Nodes,
+							sv,
+							selName,
+							ignoreCheckSig,
+							startSpanMatchers,
+							depth+1,
+						) {
+							found = true
+							return false
 						}
 					}
 				}
