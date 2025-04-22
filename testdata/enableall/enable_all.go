@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jjti/go-spancheck/testdata/enableall/util"
 	"go.opencensus.io/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+
+	"github.com/jjti/go-spancheck/testdata/enableall/util"
 )
 
 type testError struct{}
@@ -266,7 +267,7 @@ func _() (err error) {
 }
 
 func _() (err error) {
-	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths"
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.SetStatus is not called on all paths" "span.End is not called on all paths, possible memory leak"
 	defer func() {
 		if true {
 			span.End()
@@ -274,7 +275,7 @@ func _() (err error) {
 		span.RecordError(err)
 	}()
 
-	return errors.New("test") // want "return can be reached without calling span.SetStatus"
+	return errors.New("test") // want "return can be reached without calling span.SetStatus" "return can be reached without calling span.End"
 }
 
 func _() (err error) {
@@ -286,4 +287,27 @@ func _() (err error) {
 	}()
 
 	return errors.New("test")
+}
+
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "test")
+			span.End()
+		}
+	}()
+
+	return errors.New("test") // want "return can be reached without calling span.End"
+}
+
+func _() (err error) {
+	_, span := otel.Tracer("foo").Start(context.Background(), "bar") // want "span.End is not called on all paths, possible memory leak"
+	defer func() {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "test")
+	}()
+
+	return errors.New("test") // want "return can be reached without calling span.End"
 }
