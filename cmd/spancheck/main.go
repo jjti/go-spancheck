@@ -1,3 +1,4 @@
+// Package main is the command line for go-spancheck.
 package main
 
 import (
