@@ -265,4 +265,6 @@ This linter is the product of liberal copying of:
 - [github.com/ghostiam/protogetter](https://github.com/ghostiam/protogetter/blob/main/testdata/Makefile) (test setup)
 
 And the contributions of:
+
 - [@trixnz](https://github.com/trixnz) who [added support for custom span start functions](https://github.com/jjti/go-spancheck/pull/16)
+- [@parsaaes](https://github.com/parsaaes) who [fixed a false negative bug in deferred methods that reference spans](https://github.com/jjti/go-spancheck/pull/31)
