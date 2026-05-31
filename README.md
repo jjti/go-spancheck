@@ -70,6 +70,12 @@ linters-settings:
     # Default: []
     extra-start-span-signatures:
       - "github.com/user/repo/telemetry/trace.Start:opentelemetry"
+    # A list of regexes for additional function signatures that end spans. This is useful if you have a utility
+    # method that calls `span.End()` internally and would otherwise trip the `end` check.
+    # https://github.com/jjti/go-spancheck#extra-end-span-signatures
+    # Default: []
+    extra-end-span-signatures:
+      - "github.com/user/repo/telemetry.End"
 ```
 
 ### CLI
@@ -89,6 +95,8 @@ $ spancheck -h
 Flags:
   -checks string
         comma-separated list of checks to enable (options: end, set-status, record-error) (default "end")
+  -extra-end-span-signatures string
+        comma-separated list of regex for function signatures that end a span
   -extra-start-span-signatures string
         comma-separated list of regex:telemetry-type for function signatures that indicate the start of a span
   -ignore-check-signatures string
@@ -149,6 +157,38 @@ You must pass a comma-separated list of regex patterns and the telemetry library
 
 ```bash
 spancheck -extra-start-span-signatures 'github.com/user/repo/telemetry/StartTrace:opentelemetry' ./...
+```
+
+### Extra End Span Signatures
+
+This setting avoids false positives from utility functions that end spans on the caller's behalf.
+
+The `span.End()` check warns when there is a path to a return statement that does not call `End` on the span. But it's common to wrap `span.End()` in a helper that also records the error and sets the status. spancheck only recognizes the `span.End()` method by default, so such helpers would trip the check.
+
+You can use the `-extra-end-span-signatures` flag to list additional functions that end a span. When one is found in the path to a return, the `end` check is satisfied. Pass a comma-separated list of regexes, each matched against the function's fully-qualified signature (e.g. `func github.com/user/repo/telemetry.End(span go.opentelemetry.io/otel/trace.Span, err error)`). The match is an unanchored substring, so you can pass the full path or just a shorter pattern like `telemetry.End`. For example, if you have a function named `End` in a `telemetry` package:
+
+```bash
+spancheck -extra-end-span-signatures 'github.com/user/repo/telemetry.End' ./...
+```
+
+For example, the deferred call below would have a warning by default, which `-extra-end-span-signatures 'telemetry.End'` suppresses:
+
+```go
+func task(ctx context.Context) (err error) {
+    ctx, span := otel.Tracer("foo").Start(ctx, "bar") // span.End is not called on all paths, possible memory leak
+    defer func() { telemetry.End(span, err) }()
+
+    return subTask(ctx)
+}
+
+func End(span trace.Span, err error) {
+    if err != nil {
+        span.SetStatus(codes.Error, err.Error())
+        span.RecordError(err)
+    }
+
+    span.End()
+}
 ```
 
 ## Problem Statement
