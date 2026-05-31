@@ -40,6 +40,12 @@ func Test(t *testing.T) {
 
 			return cfg
 		},
+		"extraendsignatures": func() *spancheck.Config {
+			cfg := spancheck.NewDefaultConfig()
+			cfg.EndSpanSignaturesSlice = []string{"telemetry.End"}
+
+			return cfg
+		},
 	} {
 		dir := dir
 		t.Run(dir, func(t *testing.T) {

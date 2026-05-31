@@ -28,6 +28,9 @@ func main() {
 	extraStartSpanSignatures := ""
 	flag.StringVar(&extraStartSpanSignatures, "extra-start-span-signatures", "", "comma-separated list of regex:telemetry-type for function signatures that indicate the start of a span")
 
+	extraEndSpanSignatures := ""
+	flag.StringVar(&extraEndSpanSignatures, "extra-end-span-signatures", "", "comma-separated list of regex for function signatures that end a span")
+
 	flag.Parse()
 
 	cfg := spancheck.NewDefaultConfig()
@@ -36,6 +39,10 @@ func main() {
 
 	if extraStartSpanSignatures != "" {
 		cfg.StartSpanMatchersSlice = append(cfg.StartSpanMatchersSlice, strings.Split(extraStartSpanSignatures, ",")...)
+	}
+
+	if extraEndSpanSignatures != "" {
+		cfg.EndSpanSignaturesSlice = append(cfg.EndSpanSignaturesSlice, strings.Split(extraEndSpanSignatures, ",")...)
 	}
 
 	singlechecker.Main(spancheck.NewAnalyzerWithConfig(cfg))

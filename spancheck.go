@@ -189,7 +189,8 @@ func runFunc(pass *analysis.Pass, node ast.Node, config *Config) {
 	for _, sv := range spanVars {
 		if config.endCheckEnabled {
 			// Check if there's no End to the span.
-			if ret := getMissingSpanCalls(pass, g, sv, selNameEnd, func(_ *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }, nil, config.startSpanMatchers); ret != nil {
+			passRet := func(_ *analysis.Pass, ret *ast.ReturnStmt) *ast.ReturnStmt { return ret }
+			if ret := getMissingSpanCalls(pass, g, sv, selNameEnd, passRet, config.endSpanSignatures, config.startSpanMatchers); ret != nil {
 				pass.ReportRangef(sv.stmt, "%s.End is not called on all paths, possible memory leak", sv.vr.Name())
 				pass.ReportRangef(ret, "return can be reached without calling %s.End", sv.vr.Name())
 			}

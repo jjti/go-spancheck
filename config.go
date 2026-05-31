@@ -72,6 +72,10 @@ type Config struct {
 
 	StartSpanMatchersSlice []string
 
+	// EndSpanSignaturesSlice is a slice of strings that are turned into the
+	// endSpanSignatures regex.
+	EndSpanSignaturesSlice []string
+
 	endCheckEnabled    bool
 	setStatusEnabled   bool
 	recordErrorEnabled bool
@@ -79,6 +83,10 @@ type Config struct {
 	// ignoreChecksSignatures is a regex that, if matched, disables the
 	// SetStatus and RecordError checks on error.
 	ignoreChecksSignatures *regexp.Regexp
+
+	// endSpanSignatures is a regex that, if matched in the call path, satisfies
+	// the End check (e.g. a helper that calls span.End() internally).
+	endSpanSignatures *regexp.Regexp
 
 	startSpanMatchers            []spanStartMatcher
 	startSpanMatchersCustomRegex *regexp.Regexp
@@ -106,6 +114,7 @@ func (c *Config) finalize() {
 func (c *Config) parseSignatures() {
 	c.parseIgnoreSignatures()
 	c.parseStartSpanSignatures()
+	c.parseEndSpanSignatures()
 }
 
 func (c *Config) parseIgnoreSignatures() {
@@ -115,6 +124,16 @@ func (c *Config) parseIgnoreSignatures() {
 		}
 
 		c.ignoreChecksSignatures = createRegex(c.IgnoreChecksSignaturesSlice)
+	}
+}
+
+func (c *Config) parseEndSpanSignatures() {
+	if c.endSpanSignatures == nil && len(c.EndSpanSignaturesSlice) > 0 {
+		if len(c.EndSpanSignaturesSlice) == 1 && c.EndSpanSignaturesSlice[0] == "" {
+			return
+		}
+
+		c.endSpanSignatures = createRegex(c.EndSpanSignaturesSlice)
 	}
 }
 

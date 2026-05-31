@@ -19,6 +19,7 @@ testvendor:
 	cp -r testdata/base/vendor testdata/base/src
 	cp -r testdata/base/vendor testdata/disableerrorchecks/src
 	cp -r testdata/base/vendor testdata/enableall/src
+	cp -r testdata/base/vendor testdata/extraendsignatures/src
 	rm -rf testdata/base/vendor
 
 .PHONY: install
